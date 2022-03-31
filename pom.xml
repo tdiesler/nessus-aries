@@ -53,7 +53,7 @@
 		<version.acapy.client>0.7.23</version.acapy.client>   
         <version.slf4j>1.7.33</version.slf4j>
         <version.log4j>2.17.1</version.log4j>
-        <version.junit>4.12</version.junit>
+        <version.junit>5.7.2</version.junit>
 
         <!-- 
             Plugin versions
@@ -75,6 +75,7 @@
 
         <!-- Common Maven properties -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jdk.version>11</jdk.version>
         
     </properties>
 
@@ -104,11 +105,17 @@
 				<version>${version.slf4j}</version>
 			</dependency>
 			<dependency>
+				<!-- -Dorg.slf4j.simpleLogger.defaultLogLevel=debug -->
 				<groupId>org.apache.logging.log4j</groupId>
 				<artifactId>log4j-slf4j-impl</artifactId>
 				<version>${version.log4j}</version>
 			</dependency>
-			<!---Dorg.slf4j.simpleLogger.defaultLogLevel=debug-->
+	        <dependency>
+	            <groupId>org.junit.jupiter</groupId>
+	            <artifactId>junit-jupiter-engine</artifactId>
+	            <version>${version.junit}</version>
+	            <scope>test</scope>
+	        </dependency>
         </dependencies>
     </dependencyManagement>
     
@@ -127,8 +134,8 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${version-maven-compiler-plugin}</version>
                     <configuration>
-                        <source>1.8</source>
-                        <target>1.8</target>
+                        <source>11</source>
+                        <target>11</target>
                     </configuration>
                 </plugin>
                 <plugin>

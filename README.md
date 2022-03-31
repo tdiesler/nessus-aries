@@ -40,13 +40,41 @@ Hyperledger [Aries Cloud Agent Python (ACA-Py)](https://github.com/hyperledger/a
 git clone https://github.com/hyperledger/aries-cloudagent-python
 cd aries-cloudagent-python
 
-export PORTS=8100:8200
+docker build -t nessus/aries-cloudagent -f ./docker/Dockerfile.run .
 
-./scripts/run_docker start \
-  --genesis-url http://host.docker.internal:9000/genesis \
-  --inbound-transport http 0.0.0.0 8100 \
-  --outbound-transport http \
-  --admin-insecure-mode \
-  --admin 0.0.0.0 8200 \
-  --endpoint http://localhost:8100
+ACAPY_USER_PORT=8030
+ACAPY_ADMIN_PORT=8031
+ACAPY_ENDPOINT_IP=localhost
+
+docker run --rm nessus/aries-cloudagent provision \
+   --genesis-url http://host.docker.internal:9000/genesis \
+   --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_ADMIN_PORT} \
+   --seed 000000000000000000000000Trustee1 \
+   --wallet-storage-type default \
+   --wallet-key trusteewkey \
+   --wallet-name trustee \
+   --wallet-type indy \
+   --recreate-wallet \
+   --storage-type indy
+
+docker run -it --rm \
+   --name aries-cloudagent \
+   -p ${ACAPY_USER_PORT}:${ACAPY_USER_PORT} \
+   -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
+  	nessus/aries-cloudagent start \
+      --genesis-url http://host.docker.internal:9000/genesis \
+      --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_ADMIN_PORT} \
+      --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
+      --outbound-transport http \
+      --admin 0.0.0.0 ${ACAPY_ADMIN_PORT} \
+      --admin-insecure-mode \
+      --auto-provision \
+      --seed 000000000000000000000000Trustee1 \
+      --wallet-storage-type default \
+      --wallet-key trusteewkey \
+      --wallet-name trustee \
+      --wallet-type indy \
+      --recreate-wallet \
+      --storage-type indy \
+      --log-level info
 ```

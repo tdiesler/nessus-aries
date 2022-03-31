@@ -1,36 +1,6 @@
-# Nessus Aries
+# Getting Started Demo Walkthrough
 
-With Nessus Aries we explore aspects of digital identy and verifiable credentials based on [Hyperledger Aries](https://www.hyperledger.org/use/aries).
-
-This is a contribution to "Making The World Work Better For All".
-
-Who is going to control our digitial identity? Digital forms of our birth certificate, passport, drivers license,
-medical records, vaccination certificates, univeristy degrees, property certificates, etc.
-Is it the state, a corporation or should we be in control ourselves?
-
-<img src="docs/img/ssi-book.png" height="200">
-
-Shouldn't we have in fact a [self sovereign identity](https://www.manning.com/books/self-sovereign-identity) (SSI)?
-
-## External Documentation
-
-* [The Story of Open SSI Standards](https://www.youtube.com/watch?v=RllH91rcFdE)
-* [Hyperledger Aries Wiki](https://wiki.hyperledger.org/display/aries)
-* [Aries Cloud Agent](https://github.com/hyperledger/aries-acapy-controllers/tree/main/AliceFaberAcmeDemo)
-
-## Hyperledger Indy, Aries and Ursa Demonstrations
-
-In [this demonstration](https://github.com/cloudcompass/ToIPLabs/blob/main/docs/LFS172x/running-aries-browser-lab.md#web-agent-demonstration), we build and run a web-based demo of interacting agents that goes through the story of Alice getting proof of her degree from Faber College in the form of a verifiable credential, and then using the verifiable credential in a proof that is part of a job application at ACME Corp. This is getting a bit ahead of ourselves, but Alice gets the job!
-
-To see a short screencast of the demo, click [here](https://youtu.be/5EA-jqkvn4I).
-
-For the demo we use ACA-Py from the Hyperledger repo [Aries ACA-Py Controllers](https://github.com/hyperledger/aries-acapy-controllers).
-
-### Running with Docker Locally
-
-https://github.com/hyperledger/aries-acapy-controllers/tree/main/AliceFaberAcmeDemo#running-locally
-
-#### Running the VON Network
+## Running the VON Network
 
 The demos require a Hyperledger Indy Node network. Is is recommended to use the [VON Network](https://github.com/bcgov/von-network), developed as a portable Indy Node Network implementation for local development. Instructions for setting up the von-network can be viewed [here](https://github.com/bcgov/von-network#running-the-network-locally).
 
@@ -43,8 +13,6 @@ cd von-network
 ./manage build
 ./manage up --logs
 ```
-
-http://localhost:9000
 
 #### Running the ACA-Py Agents & Controllers
 

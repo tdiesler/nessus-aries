@@ -21,22 +21,16 @@
 package io.nessus.aries.test;
 
 import org.hyperledger.aries.AriesClient;
-import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * 
- */
-public class GettingStartedTest {
+abstract class AbstractAriesTest {
 
-	Logger log = LoggerFactory.getLogger(getClass());
+	final Logger log = LoggerFactory.getLogger(getClass());
 	
-	@Test
-	public void testWorkflow() throws Exception {
-		
-		AriesClient ac = AriesClient.builder()
-		        .url("https://localhost:8100")
-		        .build();		
-	}
+	final static String TRUSTEE_DID = "V4SGRU86Z58d6TV7PBUe6f";
+	final static String TRUSTEE_VKEY = "GJ1SzoWzavQYfNL9XkaJdrQejfztN4XqdsiV4ct3LXKL";
+
+	final AriesClient ac = AriesClient.builder()
+			.url("http://localhost:8031").build();		
 }
