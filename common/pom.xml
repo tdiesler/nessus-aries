@@ -26,36 +26,23 @@
 
 	<parent>
 		<groupId>io.nessus.aries</groupId>
-		<artifactId>nessus-aries-itests</artifactId>
+		<artifactId>nessus-aries</artifactId>
 		<version>1.0.0.fuse-SNAPSHOT</version>
 	</parent>
 
-    <name>Nessus Aries :: Tests :: Smoke</name>
+    <name>Nessus Aries :: Common</name>
 
-    <artifactId>nessus-aries-itests-smoke</artifactId>
+    <artifactId>nessus-aries-common</artifactId>
     <packaging>jar</packaging>
 
-   <dependencies>
-      <dependency>
-         <groupId>io.nessus.aries</groupId>
-         <artifactId>nessus-aries-common</artifactId>
-         <version>${project.version}</version>
-      </dependency>
-      <dependency>
-         <groupId>network.idu.acapy</groupId>
-         <artifactId>aries-client-python</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.slf4j</groupId>
-         <artifactId>slf4j-api</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.logging.log4j</groupId>
-         <artifactId>log4j-slf4j-impl</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.junit.jupiter</groupId>
-         <artifactId>junit-jupiter-engine</artifactId>
-      </dependency>
-   </dependencies>
+	<dependencies>
+		<dependency>
+		   <groupId>network.idu.acapy</groupId>
+		   <artifactId>aries-client-python</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+		</dependency>
+	</dependencies>
 </project>

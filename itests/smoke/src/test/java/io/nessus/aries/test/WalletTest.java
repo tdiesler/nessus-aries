@@ -1,46 +1,48 @@
-/*
- * #%L
- * Wildfly Camel :: Testsuite
- * %%
- * Copyright (C) 2013 - 2014 RedHat
- * %%
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * #L%
- */
 
 package io.nessus.aries.test;
 
+import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
+
 import org.hyperledger.acy_py.generated.model.DID;
-import org.hyperledger.acy_py.generated.model.GetNymRoleResponse;
-import org.hyperledger.acy_py.generated.model.GetNymRoleResponse.RoleEnum;
+import org.hyperledger.acy_py.generated.model.DIDCreate;
+import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test the Acapy wallet endpoint 
+ * Test the Acapy wallet endpoint
  */
 public class WalletTest extends AbstractAriesTest {
 
-	@Test
-	public void testTrusteeDid() throws Exception {
+    @Test
+    void testMultitenantWallet() throws Exception {
 
-		DID didRes = ac.walletDidPublic().get();
-		log.info("" + didRes);
-		Assertions.assertEquals(TRUSTEE_DID, didRes.getDid());
-		Assertions.assertEquals(TRUSTEE_VKEY, didRes.getVerkey());
-		
-		GetNymRoleResponse nymRoleRes = ac.ledgerGetNymRole(TRUSTEE_DID).get();
-		log.info("" + nymRoleRes);
-		Assertions.assertEquals(RoleEnum.TRUSTEE, nymRoleRes.getRole());
-	}
+        // Create multitenant wallet
+        String walletKey = "alicewkey";
+        WalletRecord walletRecord = createWallet("alice", walletKey);
+        log.info("Wallet: {}", walletRecord);
+
+        // Get wallet by wallet id
+        WalletRecord walletRecordReloaded = getWallet(walletRecord.getWalletId());
+        Assertions.assertEquals(walletRecord.toString(), walletRecordReloaded.toString());
+
+        // Create client for sub wallet
+        AriesClient alice = createWalletClient(walletRecord.getToken());
+
+        // Create local did
+        //
+        // [#1682] Allow use of SEED when creating local wallet DID
+        // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
+        DID aliceDid = alice.walletDidCreate(DIDCreate.builder().build()).get();
+        log.info("Alice DID: {}", aliceDid);
+
+        selfRegisterDid(aliceDid.getDid(), aliceDid.getVerkey(), ENDORSER);
+
+        // Set the public DID for the wallet
+        alice.walletDidPublic(aliceDid.getDid());
+
+        // Delete wallet
+        removeWallet(walletRecord.getWalletId(), walletKey);
+    }
 }

@@ -57,6 +57,29 @@ docker run --rm nessus/aries-cloudagent provision \
    --recreate-wallet \
    --storage-type indy
 
+# Run in single tenant mode
+docker run -it --rm \
+   --name aries-cloudagent \
+   -p ${ACAPY_USER_PORT}:${ACAPY_USER_PORT} \
+   -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
+   nessus/aries-cloudagent start \
+      --genesis-url http://host.docker.internal:9000/genesis \
+      --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_ADMIN_PORT} \
+      --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
+      --outbound-transport http \
+      --seed 000000000000000000000000Trustee1 \
+      --admin 0.0.0.0 ${ACAPY_ADMIN_PORT} \
+      --admin-insecure-mode \
+      --auto-provision \
+      --wallet-storage-type default \
+      --wallet-key trusteewkey \
+      --wallet-name trustee \
+      --wallet-type indy \
+      --recreate-wallet \
+      --storage-type indy \
+      --log-level info
+
+# Run in multi tenant mode
 docker run -it --rm \
    --name aries-cloudagent \
    -p ${ACAPY_USER_PORT}:${ACAPY_USER_PORT} \
@@ -67,14 +90,11 @@ docker run -it --rm \
       --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
       --outbound-transport http \
       --admin 0.0.0.0 ${ACAPY_ADMIN_PORT} \
-      --admin-insecure-mode \
-      --auto-provision \
-      --seed 000000000000000000000000Trustee1 \
+      --admin-api-key adminkey \
+      --multitenant \
+      --multitenant-admin \
+      --jwt-secret jwtsecret \
       --wallet-storage-type default \
-      --wallet-key trusteewkey \
-      --wallet-name trustee \
-      --wallet-type indy \
-      --recreate-wallet \
       --storage-type indy \
       --log-level info
 ```
