@@ -46,6 +46,8 @@ ACAPY_USER_PORT=8030
 ACAPY_ADMIN_PORT=8031
 ACAPY_ENDPOINT_IP=localhost
 
+docker run -it --rm nessus/aries-cloudagent start help
+
 # Run in single wallet mode
 docker run -it --rm \
    --name aries-cloudagent \
@@ -53,7 +55,7 @@ docker run -it --rm \
    -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
    nessus/aries-cloudagent start \
       --genesis-url http://host.docker.internal:9000/genesis \
-      --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_ADMIN_PORT} \
+      --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_USER_PORT} \
       --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
       --outbound-transport http \
       --admin 0.0.0.0 ${ACAPY_ADMIN_PORT} \
@@ -75,7 +77,7 @@ docker run -it --rm \
    -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
    nessus/aries-cloudagent start \
       --genesis-url http://host.docker.internal:9000/genesis \
-      --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_ADMIN_PORT} \
+      --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_USER_PORT} \
       --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
       --outbound-transport http \
       --storage-type indy \
@@ -91,5 +93,7 @@ docker run -it --rm \
       --wallet-type indy \
       --recreate-wallet \
       --auto-provision \
+      --auto-accept-requests \
+      --auto-respond-messages \
       --log-level info
 ```

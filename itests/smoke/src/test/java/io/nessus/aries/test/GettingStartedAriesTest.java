@@ -4,14 +4,24 @@ import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Map;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.acy_py.generated.model.DIDCreate;
 import org.hyperledger.acy_py.generated.model.GetNymRoleResponse;
 import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.api.connection.ConnectionRecord;
+import org.hyperledger.aries.api.connection.ConnectionStaticRequest;
+import org.hyperledger.aries.api.connection.ConnectionStaticResult;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
+import org.hyperledger.aries.api.credentials.CredentialAttributes;
+import org.hyperledger.aries.api.credentials.CredentialPreview;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialProposalRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import org.hyperledger.aries.api.revocation.RevRegCreateRequest;
+import org.hyperledger.aries.api.revocation.RevRegCreateResponse;
 import org.hyperledger.aries.api.schema.SchemaSendRequest;
 import org.hyperledger.aries.api.schema.SchemaSendResponse;
 import org.hyperledger.aries.api.schema.SchemaSendResponse.Schema;
@@ -32,31 +42,35 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     class Context {
 
+        DID governmentDid;
         String governmentWalletId;
         String governmentWalletKey;
         String governmentAccessToken;
-        DID governmentDid;
 
+        DID faberDid;
         String faberWalletId;
         String faberWalletKey;
         String faberAccessToken;
-        DID faberDid;
+        String faberTranscriptCredDefId;
 
+        DID acmeDid;
         String acmeWalletId;
         String acmeWalletKey;
         String acmeAccessToken;
-        DID acmeDid;
+        String acmeJobCertificateCredDefId;
+        String acmeJobCertificateRevocationRegistryId;
 
+        DID thriftDid;
         String thriftWalletId;
         String thriftWalletKey;
         String thriftAccessToken;
-        DID thriftDid;
 
+        DID aliceDid;
         String aliceWalletId;
         String aliceWalletKey;
         String aliceAccessToken;
-        DID aliceDid;
-        
+        String faberAliceConnectionId;
+
         String transcriptSchemaId;
         String jobCertificateSchemaId;
     }
@@ -83,7 +97,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          */
 
         // For this example, we use a running instance of the VON-Network
-        
+
         /*
          * Onboard Government Wallet and DID
          * 
@@ -125,9 +139,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         onboardFaberColledge(ctx);
         onboardAcmeCorp(ctx);
-        
 //        onboardThriftBank(ctx);
-//        onboardAlice(ctx);
+        onboardAlice(ctx);
 
         /*
          * Creating Credential Schemas
@@ -144,8 +157,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * other elaborate constructs.
          */
 
-		createTranscriptSchema(ctx);
-		createJobCertificateSchema(ctx);
+        createTranscriptSchema(ctx);
+//		createJobCertificateSchema(ctx);
 
         /*
          * Creating Credential Definitions
@@ -165,8 +178,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * A Credential Definition can be created and saved in the Ledger an Endorser.
          */
 
-		createTranscriptCredentialDefinition(ctx);
-		createJobCertificateCredentialDefinition(ctx);
+        createTranscriptCredentialDefinition(ctx);
+//		createJobCertificateCredentialDefinition(ctx);
 
         /*
          * Alice gets her Transcript from Faber College
@@ -187,7 +200,12 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * should not impress anyone.
          */
 
-//		getTranscriptFromFaber(ctx);
+        try {
+            getTranscriptFromFaber(ctx);
+        } catch (Exception ex) {
+            closeAndDeleteWallets(ctx);
+            throw ex;
+        }
 
         /*
          * Alice applies for a job at Acme
@@ -269,12 +287,12 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // Verify that we can access the ledger
         GetNymRoleResponse nymRoleResponse = client.ledgerGetNymRole(didResponse.getDid()).get();
         log.info("{} DID: {}", walletName, nymRoleResponse);
-        
+
         ctx.governmentWalletId = walletRecord.getWalletId();
         ctx.governmentAccessToken = walletRecord.getToken();
         ctx.governmentWalletKey = walletKey;
         ctx.governmentDid = didResponse;
-        
+
     }
 
     private void onboardFaberColledge(Context ctx) throws IOException {
@@ -285,13 +303,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient faber = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
         // [#1682] Allow use of SEED when creating local wallet DID
         // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = client.walletDidCreate(DIDCreate.builder().build()).get();
+        DID didResponse = faber.walletDidCreate(DIDCreate.builder().build()).get();
         log.info("{} DID: {}", walletName, didResponse);
 
         // A wallet can normally not self-register a newly created DID
@@ -301,7 +319,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
 
         // Set the public DID for the wallet
-        client.walletDidPublic(didResponse.getDid());
+        faber.walletDidPublic(didResponse.getDid());
 
         ctx.faberWalletId = walletRecord.getWalletId();
         ctx.faberAccessToken = walletRecord.getToken();
@@ -317,13 +335,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient acme = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
         // [#1682] Allow use of SEED when creating local wallet DID
         // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = client.walletDidCreate(DIDCreate.builder().build()).get();
+        DID didResponse = acme.walletDidCreate(DIDCreate.builder().build()).get();
         log.info("{} DID: {}", walletName, didResponse);
 
         // A wallet can normally not self-register a newly created DID
@@ -333,7 +351,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
 
         // Set the public DID for the wallet
-        client.walletDidPublic(didResponse.getDid());
+        acme.walletDidPublic(didResponse.getDid());
 
         ctx.acmeWalletId = walletRecord.getWalletId();
         ctx.acmeAccessToken = walletRecord.getToken();
@@ -349,13 +367,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient thrift = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
         // [#1682] Allow use of SEED when creating local wallet DID
         // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = client.walletDidCreate(DIDCreate.builder().build()).get();
+        DID didResponse = thrift.walletDidCreate(DIDCreate.builder().build()).get();
         log.info("{} DID: {}", walletName, didResponse);
 
         // A wallet can normally not self-register a newly created DID
@@ -365,7 +383,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
 
         // Set the public DID for the wallet
-        client.walletDidPublic(didResponse.getDid());
+        thrift.walletDidPublic(didResponse.getDid());
 
         ctx.thriftWalletId = walletRecord.getWalletId();
         ctx.thriftAccessToken = walletRecord.getToken();
@@ -381,14 +399,23 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient alice = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
         // [#1682] Allow use of SEED when creating local wallet DID
         // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = client.walletDidCreate(DIDCreate.builder().build()).get();
+        DID didResponse = alice.walletDidCreate(DIDCreate.builder().build()).get();
         log.info("{} DID: {}", walletName, didResponse);
+
+        // A wallet can normally not self-register a newly created DID
+        // This has to go through an authorized Agent
+        // Here we cheat a little and use the VON-Network Admin page to register the DID
+        // [TODO] Use an external endorser agent
+        selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
+
+        // Set the public DID for the wallet
+        alice.walletDidPublic(didResponse.getDid());
 
         ctx.aliceWalletId = walletRecord.getWalletId();
         ctx.aliceAccessToken = walletRecord.getToken();
@@ -397,123 +424,226 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
     }
 
     private void createTranscriptSchema(Context ctx) throws IOException {
-        
+
         // Government creates the Transcript Credential Schema and sends it to the Ledger
         // It can do so with it's Endorser role
-        
+
         // Create client for sub wallet
         AriesClient government = useWallet(ctx.governmentAccessToken);
-        
+
         SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
                 .schemaVersion("1.2")
                 .schemaName("Transcript")
-                .attributes(Arrays.asList("first_name","last_name","degree","status","year","average","ssn"))
+                .attributes(Arrays.asList("first_name", "last_name", "degree", "status", "year", "average", "ssn"))
                 .build()).get();
-        
-        // Verify that we can read the schema from the Ledger
-        Schema schema = government.schemasGetById(schemaResponse.getSchemaId()).get();
-        log.info("{}", schema);
-        
+
         ctx.transcriptSchemaId = schemaResponse.getSchemaId();
     }
-    
+
     void createJobCertificateSchema(Context ctx) throws Exception {
-        
+
         // Government creates the Job-Certificate Credential Schema and sends it to the Ledger
         // It can do so with it's Endorser role
-        
+
         // Create client for sub wallet
         AriesClient government = useWallet(ctx.governmentAccessToken);
-        
+
         SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
                 .schemaVersion("0.2")
                 .schemaName("Job-Certificate")
-                .attributes(Arrays.asList("first_name","last_name","salary","employee_status","experience"))
+                .attributes(Arrays.asList("first_name", "last_name", "salary", "employee_status", "experience"))
                 .build()).get();
-        
-        // Verify that we can read the schema from the Ledger
-        Schema schema = government.schemasGetById(schemaResponse.getSchemaId()).get();
-        log.info("{}", schema);
-        
+
         ctx.jobCertificateSchemaId = schemaResponse.getSchemaId();
     }
 
     void createTranscriptCredentialDefinition(Context ctx) throws Exception {
-        
+
         // 1. Faber get the Transcript Credential Schema
-        
+
         // Create client for sub wallet
         AriesClient faber = useWallet(ctx.faberAccessToken);
-        
+
         Schema schema = faber.schemasGetById(ctx.transcriptSchemaId).get();
         log.info("{}", schema);
-        
+
         // 2. Faber creates the Credential Definition related to the received Credential Schema and send it to the ledger
-        
-        CredentialDefinitionResponse credentialDefinitionResponse = faber.credentialDefinitionsCreate(CredentialDefinitionRequest.builder()
-        		.schemaId(schema.getId())
-        		.supportRevocation(false)
-        		.build()).get();
-        log.info("{}", credentialDefinitionResponse);
+
+        CredentialDefinitionResponse creddefResponse = faber.credentialDefinitionsCreate(CredentialDefinitionRequest.builder()
+                .schemaId(schema.getId())
+                .supportRevocation(false)
+                .build()).get();
+        log.info("{}", creddefResponse);
+
+        ctx.faberTranscriptCredDefId = creddefResponse.getCredentialDefinitionId();
     }
-    
+
     void createJobCertificateCredentialDefinition(Context ctx) throws Exception {
-        
+
         // 1. Acme get the Transcript Credential Schema
 
         // Create client for sub wallet
         AriesClient acme = useWallet(ctx.acmeAccessToken);
-        
+
         Schema schema = acme.schemasGetById(ctx.jobCertificateSchemaId).get();
         log.info("{}", schema);
-        
-        // 2. Acme creates the Credential Definition related to the received Credential Schema and send it to the ledger
-        
-        CredentialDefinitionResponse credentialDefinitionResponse = acme.credentialDefinitionsCreate(CredentialDefinitionRequest.builder()
-        		.schemaId(schema.getId())
-        		.supportRevocation(true)
-        		.build()).get();
-        log.info("{}", credentialDefinitionResponse);
 
-        // 3. Acme sends the corresponding Credential Definition transaction to the Ledger
-        
-//        String credDefRequest = Ledger.buildCredDefRequest(ctx.acmeDid, createCredDefResult.getCredDefJson()).get();
-//        signAndSubmitRequest(ctx, ctx.acmeWallet, ctx.acmeDid, credDefRequest);
-        
-        /* 4. Acme creates Revocation Registry
+        // 2. Acme creates the Credential Definition related to the received Credential Schema and send it to the ledger
+
+        CredentialDefinitionResponse creddefResponse = acme.credentialDefinitionsCreate(CredentialDefinitionRequest.builder()
+                .schemaId(schema.getId())
+                .supportRevocation(true)
+                .build()).get();
+        log.info("{}", creddefResponse);
+
+        ctx.acmeJobCertificateCredDefId = creddefResponse.getCredentialDefinitionId();
+
+        /* 3. Acme creates a Revocation Registry for the given Credential Definition.
          * 
-         * The issuer anticipates revoking Job-Certificate credentials. It decides to create a revocation registry. 
+         * The issuer anticipates revoking Job-Certificate credentials. It decides to create a revocation registry.
          * 
          * One of Hyperledger Indy’s revocation registry types uses cryptographic accumulators for publishing revoked credentials. 
          * The use of those accumulators requires the publication of “validity tails” outside of the Ledger.
-         *  
-         * For the purpose of this demo, the validity tails are written in a file using a ‘blob storage’.
          */
-        
-//        BlobStorageWriter tailsWriter = BlobStorageWriter.openWriter("default", getTailsWriterConfig()).get();
 
-        // 5. Acme creates a Revocation Registry for the given Credential Definition.
-        
+        RevRegCreateResponse createRegistryResponse = acme.revocationCreateRegistry(RevRegCreateRequest.builder()
+                .credentialDefinitionId(ctx.acmeJobCertificateCredDefId)
+                .build()).get();
+        log.info("{}", createRegistryResponse);
+
+        ctx.acmeJobCertificateRevocationRegistryId = createRegistryResponse.getRevocRegId();
+
+        // 4. Acme creates a Revocation Registry for the given Credential Definition.
+
 //        String revRegDefTag = "Tag2";
 //        String revRegDefConfig = new JSONObject().put("issuance_type", "ISSUANCE_ON_DEMAND").put("max_cred_num", 5).toString();
 //        IssuerCreateAndStoreRevocRegResult createRevRegResult = Anoncreds.issuerCreateAndStoreRevocReg(ctx.acmeWallet, ctx.acmeDid, null, revRegDefTag, ctx.jobCertificateCredDefId, revRegDefConfig, tailsWriter).get();
 //        String revRegEntryJson = createRevRegResult.getRevRegEntryJson();
 //        String revRegDefJson = createRevRegResult.getRevRegDefJson();
 //        ctx.revocRegistryId = createRevRegResult.getRevRegId();
-        
-        // 6. Acme creates and submits the Revocation Registry Definition
-        
+
+        // 5. Acme creates and submits the Revocation Registry Definition
+
 //        String revRegDefRequest = Ledger.buildRevocRegDefRequest(ctx.acmeDid, revRegDefJson).get();
 //        String revRegDefResponse = signAndSubmitRequest(ctx, ctx.acmeWallet, ctx.acmeDid, revRegDefRequest);
 //        log.info(revRegDefResponse);
-        
-        // 7. Acme creates and submits the Revocation Registry Entry
-        
+
+        // 6. Acme creates and submits the Revocation Registry Entry
+
 //        String revRegEntryRequest = Ledger.buildRevocRegEntryRequest(ctx.acmeDid, ctx.revocRegistryId, "CL_ACCUM", revRegEntryJson).get();
 //        String revRegEntryResponse = signAndSubmitRequest(ctx, ctx.acmeWallet, ctx.acmeDid, revRegEntryRequest);
 //        log.info(revRegEntryResponse);
     }
-    
+
+    void getTranscriptFromFaber(Context ctx) throws Exception {
+
+        /* 1. Faber creates a Credential Offer for Alice
+         *
+         * The value of this Transcript Credential is that it is provably issued by Faber College
+         */
+
+        // Create client for sub wallet
+        AriesClient faber = useWallet(ctx.faberAccessToken);
+
+        ConnectionStaticResult connectionResult = faber.connectionsCreateStatic(ConnectionStaticRequest.builder()
+                .theirDid(ctx.aliceDid.getDid())
+                .theirVerkey(ctx.aliceDid.getVerkey())
+                .build()).get();
+        ConnectionRecord record = connectionResult.getRecord();
+        log.info("{} {}", record.getState(), connectionResult);
+        ctx.faberAliceConnectionId = record.getConnectionId();
+
+        V1CredentialExchange credentialExchange = faber.issueCredentialSend(V1CredentialProposalRequest.builder()
+                .connectionId(ctx.faberAliceConnectionId)
+                .credentialDefinitionId(ctx.faberTranscriptCredDefId)
+                .credentialProposal(new CredentialPreview(CredentialAttributes.from(Map.of(
+                        "first_name", "Alice", 
+                        "last_name", "Garcia", 
+                        "degree", "Bachelor of Science, Marketing", 
+                        "status", "graduated", 
+                        "ssn", "123-45-6789", 
+                        "year", "2015", 
+                        "average", "5"))))
+                .build()).get();
+        log.info("{}", credentialExchange);
+
+        // Create client for sub wallet
+        AriesClient alice = useWallet(ctx.aliceAccessToken);
+
+        for (V1CredentialExchange credex : alice.issueCredentialRecords(null).get()) {
+            log.info("{}", credex);
+        }
+
+        /*
+         * 2. Alice gets Credential Definition from Ledger
+         * 
+         * Alice wants to see the attributes that the Transcript Credential contains.
+         * These attributes are known because a Credential Schema for Transcript has
+         * been written to the Ledger.
+         */
+
+//		String getSchemaRequest = Ledger.buildGetSchemaRequest(ctx.faberDidForAlice, ctx.transcriptSchemaId).get();
+//		String getSchemaResponse = Ledger.submitRequest(ctx.pool, getSchemaRequest).get();
+//		ParseResponseResult parseSchemaResult = Ledger.parseGetSchemaResponse(getSchemaResponse).get();
+//		log.info("Transcript Schema" + parseSchemaResult.getObjectJson());
+
+        /*
+         * 3. Alice creates a Master Secret
+         * 
+         * A Master Secret is an item of Private Data used by a Prover to guarantee that
+         * a credential uniquely applies to them.
+         * 
+         * The Master Secret is an input that combines data from multiple Credentials to
+         * prove that the Credentials have a common subject (the Prover). A Master
+         * Secret should be known only to the Prover.
+         */
+
+//		ctx.aliceMasterSecretId = Anoncreds.proverCreateMasterSecret(ctx.aliceWallet, null).get();
+
+        /*
+         * 4. Alice get the Credential Definition
+         * 
+         * Alice also needs to get the Credential Definition corresponding to the
+         * Credential Definition Id in the Transcript Credential Offer.
+         */
+
+//		String credDefResponse = submitRequest(ctx, Ledger.buildGetCredDefRequest(ctx.aliceDid, transcriptCredDefId).get());
+//		ParseResponseResult parsedCredDefResponse = Ledger.parseGetCredDefResponse(credDefResponse).get();
+//		String transcriptCredDef = parsedCredDefResponse.getObjectJson();
+
+        // 5. Alice creates a Credential Request of the issuance of the Transcript
+        // Credential
+
+//		ProverCreateCredentialRequestResult credentialRequestResult = Anoncreds.proverCreateCredentialReq(ctx.aliceWallet, ctx.aliceDidForFaber, transcriptCredOffer, transcriptCredDef, ctx.aliceMasterSecretId).get();
+//		String credentialRequestMetadataJson = credentialRequestResult.getCredentialRequestMetadataJson();
+//		String credentialRequestJson = credentialRequestResult.getCredentialRequestJson();
+
+        /*
+         * 6. Faber creates the Transcript Credential for Alice
+         * 
+         * Encoding is not standardized by Indy except that 32-bit integers are encoded
+         * as themselves.
+         */
+
+//		String credValuesJson = new JSONObject()
+//			.put("first_name", new JSONObject().put("raw", "Alice").put("encoded", "1139481716457488690172217916278103335"))
+//			.put("last_name", new JSONObject().put("raw", "Garcia").put("encoded", "5321642780241790123587902456789123452"))
+//			.put("degree", new JSONObject().put("raw", "Bachelor of Science, Marketing").put("encoded", "12434523576212321"))
+//			.put("status", new JSONObject().put("raw", "graduated").put("encoded", "2213454313412354"))
+//			.put("ssn", new JSONObject().put("raw", "123-45-6789").put("encoded", "3124141231422543541"))
+//			.put("year", new JSONObject().put("raw", "2015").put("encoded", "2015"))
+//			.put("average", new JSONObject().put("raw", "5").put("encoded", "5")).toString();
+//		
+//		IssuerCreateCredentialResult issuerCredentialResult = Anoncreds.issuerCreateCredential(ctx.faberWallet, transcriptCredOffer, credentialRequestJson, credValuesJson, null, 0).get();
+//		String transcriptCredJson = issuerCredentialResult.getCredentialJson();
+//		log.info("IssuedCredential: " + transcriptCredJson);
+
+        // 7. Alice stores Transcript Credential from Faber in her Wallet
+
+//		String transcriptCredentialId = Anoncreds.proverStoreCredential(ctx.aliceWallet, null, credentialRequestMetadataJson, transcriptCredJson, transcriptCredDef, null).get();
+//		log.info("Transcript Credential Id: " + transcriptCredentialId);
+    }
+
     private void closeAndDeleteWallets(Context ctx) {
         removeWallet(ctx.governmentWalletId, ctx.governmentWalletKey);
         removeWallet(ctx.faberWalletId, ctx.faberWalletKey);
