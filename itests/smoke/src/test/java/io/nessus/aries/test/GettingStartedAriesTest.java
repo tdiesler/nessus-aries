@@ -3,11 +3,18 @@ package io.nessus.aries.test;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.acy_py.generated.model.DIDCreate;
+import org.hyperledger.acy_py.generated.model.GetNymRoleResponse;
 import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionRequest;
+import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import org.hyperledger.aries.api.schema.SchemaSendRequest;
+import org.hyperledger.aries.api.schema.SchemaSendResponse;
+import org.hyperledger.aries.api.schema.SchemaSendResponse.Schema;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,6 +56,9 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         String aliceWalletKey;
         String aliceAccessToken;
         DID aliceDid;
+        
+        String transcriptSchemaId;
+        String jobCertificateSchemaId;
     }
 
     @Test
@@ -115,8 +125,9 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         onboardFaberColledge(ctx);
         onboardAcmeCorp(ctx);
-        onboardThriftBank(ctx);
-        onboardAlice(ctx);
+        
+//        onboardThriftBank(ctx);
+//        onboardAlice(ctx);
 
         /*
          * Creating Credential Schemas
@@ -133,8 +144,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * other elaborate constructs.
          */
 
-//		createTranscriptSchema(ctx);
-//		createJobCertificateSchema(ctx);
+		createTranscriptSchema(ctx);
+		createJobCertificateSchema(ctx);
 
         /*
          * Creating Credential Definitions
@@ -154,8 +165,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * A Credential Definition can be created and saved in the Ledger an Endorser.
          */
 
-//		createTranscriptCredentialDefinition(ctx);
-//		createJobCertificateCredentialDefinition(ctx);
+		createTranscriptCredentialDefinition(ctx);
+		createJobCertificateCredentialDefinition(ctx);
 
         /*
          * Alice gets her Transcript from Faber College
@@ -237,7 +248,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = createWalletClient(walletRecord.getToken());
+        AriesClient client = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
@@ -255,10 +266,15 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // Set the public DID for the wallet
         client.walletDidPublic(didResponse.getDid());
 
+        // Verify that we can access the ledger
+        GetNymRoleResponse nymRoleResponse = client.ledgerGetNymRole(didResponse.getDid()).get();
+        log.info("{} DID: {}", walletName, nymRoleResponse);
+        
         ctx.governmentWalletId = walletRecord.getWalletId();
         ctx.governmentAccessToken = walletRecord.getToken();
         ctx.governmentWalletKey = walletKey;
         ctx.governmentDid = didResponse;
+        
     }
 
     private void onboardFaberColledge(Context ctx) throws IOException {
@@ -269,7 +285,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = createWalletClient(walletRecord.getToken());
+        AriesClient client = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
@@ -301,7 +317,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = createWalletClient(walletRecord.getToken());
+        AriesClient client = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
@@ -333,7 +349,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = createWalletClient(walletRecord.getToken());
+        AriesClient client = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
@@ -365,7 +381,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("Wallet: {}", walletRecord);
 
         // Create client for sub wallet
-        AriesClient client = createWalletClient(walletRecord.getToken());
+        AriesClient client = useWallet(walletRecord.getToken());
 
         // Create a local DID
         //
@@ -380,6 +396,124 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         ctx.aliceDid = didResponse;
     }
 
+    private void createTranscriptSchema(Context ctx) throws IOException {
+        
+        // Government creates the Transcript Credential Schema and sends it to the Ledger
+        // It can do so with it's Endorser role
+        
+        // Create client for sub wallet
+        AriesClient government = useWallet(ctx.governmentAccessToken);
+        
+        SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
+                .schemaVersion("1.2")
+                .schemaName("Transcript")
+                .attributes(Arrays.asList("first_name","last_name","degree","status","year","average","ssn"))
+                .build()).get();
+        
+        // Verify that we can read the schema from the Ledger
+        Schema schema = government.schemasGetById(schemaResponse.getSchemaId()).get();
+        log.info("{}", schema);
+        
+        ctx.transcriptSchemaId = schemaResponse.getSchemaId();
+    }
+    
+    void createJobCertificateSchema(Context ctx) throws Exception {
+        
+        // Government creates the Job-Certificate Credential Schema and sends it to the Ledger
+        // It can do so with it's Endorser role
+        
+        // Create client for sub wallet
+        AriesClient government = useWallet(ctx.governmentAccessToken);
+        
+        SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
+                .schemaVersion("0.2")
+                .schemaName("Job-Certificate")
+                .attributes(Arrays.asList("first_name","last_name","salary","employee_status","experience"))
+                .build()).get();
+        
+        // Verify that we can read the schema from the Ledger
+        Schema schema = government.schemasGetById(schemaResponse.getSchemaId()).get();
+        log.info("{}", schema);
+        
+        ctx.jobCertificateSchemaId = schemaResponse.getSchemaId();
+    }
+
+    void createTranscriptCredentialDefinition(Context ctx) throws Exception {
+        
+        // 1. Faber get the Transcript Credential Schema
+        
+        // Create client for sub wallet
+        AriesClient faber = useWallet(ctx.faberAccessToken);
+        
+        Schema schema = faber.schemasGetById(ctx.transcriptSchemaId).get();
+        log.info("{}", schema);
+        
+        // 2. Faber creates the Credential Definition related to the received Credential Schema and send it to the ledger
+        
+        CredentialDefinitionResponse credentialDefinitionResponse = faber.credentialDefinitionsCreate(CredentialDefinitionRequest.builder()
+        		.schemaId(schema.getId())
+        		.supportRevocation(false)
+        		.build()).get();
+        log.info("{}", credentialDefinitionResponse);
+    }
+    
+    void createJobCertificateCredentialDefinition(Context ctx) throws Exception {
+        
+        // 1. Acme get the Transcript Credential Schema
+
+        // Create client for sub wallet
+        AriesClient acme = useWallet(ctx.acmeAccessToken);
+        
+        Schema schema = acme.schemasGetById(ctx.jobCertificateSchemaId).get();
+        log.info("{}", schema);
+        
+        // 2. Acme creates the Credential Definition related to the received Credential Schema and send it to the ledger
+        
+        CredentialDefinitionResponse credentialDefinitionResponse = acme.credentialDefinitionsCreate(CredentialDefinitionRequest.builder()
+        		.schemaId(schema.getId())
+        		.supportRevocation(true)
+        		.build()).get();
+        log.info("{}", credentialDefinitionResponse);
+
+        // 3. Acme sends the corresponding Credential Definition transaction to the Ledger
+        
+//        String credDefRequest = Ledger.buildCredDefRequest(ctx.acmeDid, createCredDefResult.getCredDefJson()).get();
+//        signAndSubmitRequest(ctx, ctx.acmeWallet, ctx.acmeDid, credDefRequest);
+        
+        /* 4. Acme creates Revocation Registry
+         * 
+         * The issuer anticipates revoking Job-Certificate credentials. It decides to create a revocation registry. 
+         * 
+         * One of Hyperledger Indy’s revocation registry types uses cryptographic accumulators for publishing revoked credentials. 
+         * The use of those accumulators requires the publication of “validity tails” outside of the Ledger.
+         *  
+         * For the purpose of this demo, the validity tails are written in a file using a ‘blob storage’.
+         */
+        
+//        BlobStorageWriter tailsWriter = BlobStorageWriter.openWriter("default", getTailsWriterConfig()).get();
+
+        // 5. Acme creates a Revocation Registry for the given Credential Definition.
+        
+//        String revRegDefTag = "Tag2";
+//        String revRegDefConfig = new JSONObject().put("issuance_type", "ISSUANCE_ON_DEMAND").put("max_cred_num", 5).toString();
+//        IssuerCreateAndStoreRevocRegResult createRevRegResult = Anoncreds.issuerCreateAndStoreRevocReg(ctx.acmeWallet, ctx.acmeDid, null, revRegDefTag, ctx.jobCertificateCredDefId, revRegDefConfig, tailsWriter).get();
+//        String revRegEntryJson = createRevRegResult.getRevRegEntryJson();
+//        String revRegDefJson = createRevRegResult.getRevRegDefJson();
+//        ctx.revocRegistryId = createRevRegResult.getRevRegId();
+        
+        // 6. Acme creates and submits the Revocation Registry Definition
+        
+//        String revRegDefRequest = Ledger.buildRevocRegDefRequest(ctx.acmeDid, revRegDefJson).get();
+//        String revRegDefResponse = signAndSubmitRequest(ctx, ctx.acmeWallet, ctx.acmeDid, revRegDefRequest);
+//        log.info(revRegDefResponse);
+        
+        // 7. Acme creates and submits the Revocation Registry Entry
+        
+//        String revRegEntryRequest = Ledger.buildRevocRegEntryRequest(ctx.acmeDid, ctx.revocRegistryId, "CL_ACCUM", revRegEntryJson).get();
+//        String revRegEntryResponse = signAndSubmitRequest(ctx, ctx.acmeWallet, ctx.acmeDid, revRegEntryRequest);
+//        log.info(revRegEntryResponse);
+    }
+    
     private void closeAndDeleteWallets(Context ctx) {
         removeWallet(ctx.governmentWalletId, ctx.governmentWalletKey);
         removeWallet(ctx.faberWalletId, ctx.faberWalletKey);

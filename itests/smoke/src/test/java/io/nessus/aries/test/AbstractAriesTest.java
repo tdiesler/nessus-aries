@@ -55,7 +55,7 @@ abstract class AbstractAriesTest {
     /**
      * Create a client for a multitenant wallet
      */
-    AriesClient createWalletClient(String walletToken) {
+    AriesClient useWallet(String walletToken) {
         AriesClient walletClient = AriesClient.builder()
                 .url(ACAPY_ADMIN_URL)
                 .apiKey(ACAPY_API_KEY)

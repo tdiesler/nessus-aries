@@ -46,18 +46,7 @@ ACAPY_USER_PORT=8030
 ACAPY_ADMIN_PORT=8031
 ACAPY_ENDPOINT_IP=localhost
 
-docker run --rm nessus/aries-cloudagent provision \
-   --genesis-url http://host.docker.internal:9000/genesis \
-   --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_ADMIN_PORT} \
-   --seed 000000000000000000000000Trustee1 \
-   --wallet-storage-type default \
-   --wallet-key trusteewkey \
-   --wallet-name trustee \
-   --wallet-type indy \
-   --recreate-wallet \
-   --storage-type indy
-
-# Run in single tenant mode
+# Run in single wallet mode
 docker run -it --rm \
    --name aries-cloudagent \
    -p ${ACAPY_USER_PORT}:${ACAPY_USER_PORT} \
@@ -67,10 +56,10 @@ docker run -it --rm \
       --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_ADMIN_PORT} \
       --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
       --outbound-transport http \
-      --seed 000000000000000000000000Trustee1 \
       --admin 0.0.0.0 ${ACAPY_ADMIN_PORT} \
       --admin-insecure-mode \
       --auto-provision \
+      --seed 000000000000000000000000Trustee1 \
       --wallet-storage-type default \
       --wallet-key trusteewkey \
       --wallet-name trustee \
@@ -79,22 +68,28 @@ docker run -it --rm \
       --storage-type indy \
       --log-level info
 
-# Run in multi tenant mode
+# Run in multitenant mode
 docker run -it --rm \
    --name aries-cloudagent \
    -p ${ACAPY_USER_PORT}:${ACAPY_USER_PORT} \
    -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
-  	nessus/aries-cloudagent start \
+   nessus/aries-cloudagent start \
       --genesis-url http://host.docker.internal:9000/genesis \
       --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_ADMIN_PORT} \
       --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
       --outbound-transport http \
+      --storage-type indy \
       --admin 0.0.0.0 ${ACAPY_ADMIN_PORT} \
       --admin-api-key adminkey \
       --multitenant \
       --multitenant-admin \
       --jwt-secret jwtsecret \
+      --seed 000000000000000000000000Trustee1 \
       --wallet-storage-type default \
-      --storage-type indy \
+      --wallet-key trusteewkey \
+      --wallet-name trustee \
+      --wallet-type indy \
+      --recreate-wallet \
+      --auto-provision \
       --log-level info
 ```

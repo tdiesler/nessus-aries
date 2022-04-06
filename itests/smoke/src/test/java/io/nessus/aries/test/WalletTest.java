@@ -28,7 +28,7 @@ public class WalletTest extends AbstractAriesTest {
         Assertions.assertEquals(walletRecord.toString(), walletRecordReloaded.toString());
 
         // Create client for sub wallet
-        AriesClient alice = createWalletClient(walletRecord.getToken());
+        AriesClient alice = useWallet(walletRecord.getToken());
 
         // Create local did
         //
