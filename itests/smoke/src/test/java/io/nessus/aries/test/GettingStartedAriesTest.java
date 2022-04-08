@@ -261,166 +261,77 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
     private void onboardGovernment(Context ctx) throws IOException {
 
         String walletKey = "govwkey";
-        WalletRecord walletRecord = createWallet("Government", walletKey);
-        String walletName = walletRecord.getSettings().getWalletName();
-        log.info("Wallet: {}", walletRecord);
+        WalletRecord walletRecord = createWalletWithDID("Government", walletKey, ENDORSER);
 
         // Create client for sub wallet
         AriesClient client = useWallet(walletRecord.getToken());
-
-        // Create a local DID
-        //
-        // [#1682] Allow use of SEED when creating local wallet DID
-        // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = client.walletDidCreate(DIDCreate.builder().build()).get();
-        log.info("{} DID: {}", walletName, didResponse);
-
-        // A wallet can normally not self-register a newly created DID
-        // This has to go through an authorized Agent
-        // Here we cheat a little and use the VON-Network Admin page to register the DID
-        // [TODO] Use an external endorser agent
-        selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
-
-        // Set the public DID for the wallet
-        client.walletDidPublic(didResponse.getDid());
-
-        // Verify that we can access the ledger
-        GetNymRoleResponse nymRoleResponse = client.ledgerGetNymRole(didResponse.getDid()).get();
-        log.info("{} DID: {}", walletName, nymRoleResponse);
+        DID publicDid = client.walletDidPublic().get();
 
         ctx.governmentWalletId = walletRecord.getWalletId();
         ctx.governmentAccessToken = walletRecord.getToken();
         ctx.governmentWalletKey = walletKey;
-        ctx.governmentDid = didResponse;
+        ctx.governmentDid = publicDid;
 
     }
 
     private void onboardFaberColledge(Context ctx) throws IOException {
 
         String walletKey = "fabwkey";
-        WalletRecord walletRecord = createWallet("Faber", walletKey);
-        String walletName = walletRecord.getSettings().getWalletName();
-        log.info("Wallet: {}", walletRecord);
+        WalletRecord walletRecord = createWalletWithDID("Faber", walletKey, ENDORSER);
 
         // Create client for sub wallet
-        AriesClient faber = useWallet(walletRecord.getToken());
-
-        // Create a local DID
-        //
-        // [#1682] Allow use of SEED when creating local wallet DID
-        // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = faber.walletDidCreate(DIDCreate.builder().build()).get();
-        log.info("{} DID: {}", walletName, didResponse);
-
-        // A wallet can normally not self-register a newly created DID
-        // This has to go through an authorized Agent
-        // Here we cheat a little and use the VON-Network Admin page to register the DID
-        // [TODO] Use an external endorser agent
-        selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
-
-        // Set the public DID for the wallet
-        faber.walletDidPublic(didResponse.getDid());
+        AriesClient client = useWallet(walletRecord.getToken());
+        DID publicDid = client.walletDidPublic().get();
 
         ctx.faberWalletId = walletRecord.getWalletId();
         ctx.faberAccessToken = walletRecord.getToken();
         ctx.faberWalletKey = walletKey;
-        ctx.faberDid = didResponse;
+        ctx.faberDid = publicDid;
     }
 
     private void onboardAcmeCorp(Context ctx) throws IOException {
 
         String walletKey = "acmewkey";
-        WalletRecord walletRecord = createWallet("Acme", walletKey);
-        String walletName = walletRecord.getSettings().getWalletName();
-        log.info("Wallet: {}", walletRecord);
+        WalletRecord walletRecord = createWalletWithDID("Acme", walletKey, ENDORSER);
 
         // Create client for sub wallet
-        AriesClient acme = useWallet(walletRecord.getToken());
-
-        // Create a local DID
-        //
-        // [#1682] Allow use of SEED when creating local wallet DID
-        // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = acme.walletDidCreate(DIDCreate.builder().build()).get();
-        log.info("{} DID: {}", walletName, didResponse);
-
-        // A wallet can normally not self-register a newly created DID
-        // This has to go through an authorized Agent
-        // Here we cheat a little and use the VON-Network Admin page to register the DID
-        // [TODO] Use an external endorser agent
-        selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
-
-        // Set the public DID for the wallet
-        acme.walletDidPublic(didResponse.getDid());
+        AriesClient client = useWallet(walletRecord.getToken());
+        DID publicDid = client.walletDidPublic().get();
 
         ctx.acmeWalletId = walletRecord.getWalletId();
         ctx.acmeAccessToken = walletRecord.getToken();
         ctx.acmeWalletKey = walletKey;
-        ctx.acmeDid = didResponse;
+        ctx.acmeDid = publicDid;
     }
 
     private void onboardThriftBank(Context ctx) throws IOException {
 
         String walletKey = "thriftwkey";
-        WalletRecord walletRecord = createWallet("Thrift", walletKey);
-        String walletName = walletRecord.getSettings().getWalletName();
-        log.info("Wallet: {}", walletRecord);
+        WalletRecord walletRecord = createWalletWithDID("Thrift", walletKey, ENDORSER);
 
         // Create client for sub wallet
-        AriesClient thrift = useWallet(walletRecord.getToken());
-
-        // Create a local DID
-        //
-        // [#1682] Allow use of SEED when creating local wallet DID
-        // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = thrift.walletDidCreate(DIDCreate.builder().build()).get();
-        log.info("{} DID: {}", walletName, didResponse);
-
-        // A wallet can normally not self-register a newly created DID
-        // This has to go through an authorized Agent
-        // Here we cheat a little and use the VON-Network Admin page to register the DID
-        // [TODO] Use an external endorser agent
-        selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
-
-        // Set the public DID for the wallet
-        thrift.walletDidPublic(didResponse.getDid());
+        AriesClient client = useWallet(walletRecord.getToken());
+        DID publicDid = client.walletDidPublic().get();
 
         ctx.thriftWalletId = walletRecord.getWalletId();
         ctx.thriftAccessToken = walletRecord.getToken();
         ctx.thriftWalletKey = walletKey;
-        ctx.thriftDid = didResponse;
+        ctx.thriftDid = publicDid;
     }
 
     private void onboardAlice(Context ctx) throws IOException {
 
         String walletKey = "alicewkey";
-        WalletRecord walletRecord = createWallet("Alice", walletKey);
-        String walletName = walletRecord.getSettings().getWalletName();
-        log.info("Wallet: {}", walletRecord);
+        WalletRecord walletRecord = createWalletWithDID("Alice", walletKey, null);
 
         // Create client for sub wallet
-        AriesClient alice = useWallet(walletRecord.getToken());
-
-        // Create a local DID
-        //
-        // [#1682] Allow use of SEED when creating local wallet DID
-        // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID didResponse = alice.walletDidCreate(DIDCreate.builder().build()).get();
-        log.info("{} DID: {}", walletName, didResponse);
-
-        // A wallet can normally not self-register a newly created DID
-        // This has to go through an authorized Agent
-        // Here we cheat a little and use the VON-Network Admin page to register the DID
-        // [TODO] Use an external endorser agent
-        selfRegisterDid(didResponse.getDid(), didResponse.getVerkey(), ENDORSER);
-
-        // Set the public DID for the wallet
-        alice.walletDidPublic(didResponse.getDid());
+        AriesClient client = useWallet(walletRecord.getToken());
+        DID publicDid = client.walletDidPublic().get();
 
         ctx.aliceWalletId = walletRecord.getWalletId();
         ctx.aliceAccessToken = walletRecord.getToken();
         ctx.aliceWalletKey = walletKey;
-        ctx.aliceDid = didResponse;
+        ctx.aliceDid = publicDid;
     }
 
     private void createTranscriptSchema(Context ctx) throws IOException {
@@ -644,7 +555,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 //		log.info("Transcript Credential Id: " + transcriptCredentialId);
     }
 
-    private void closeAndDeleteWallets(Context ctx) {
+    private void closeAndDeleteWallets(Context ctx) throws IOException {
         removeWallet(ctx.governmentWalletId, ctx.governmentWalletKey);
         removeWallet(ctx.faberWalletId, ctx.faberWalletKey);
         removeWallet(ctx.acmeWalletId, ctx.acmeWalletKey);

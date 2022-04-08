@@ -4,10 +4,9 @@ package io.nessus.aries.test;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
 import org.hyperledger.acy_py.generated.model.DID;
-import org.hyperledger.acy_py.generated.model.DIDCreate;
+import org.hyperledger.acy_py.generated.model.GetNymRoleResponse;
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -19,29 +18,18 @@ public class WalletTest extends AbstractAriesTest {
     void testMultitenantWallet() throws Exception {
 
         // Create multitenant wallet
-        String walletKey = "alicewkey";
-        WalletRecord walletRecord = createWallet("alice", walletKey);
-        log.info("Wallet: {}", walletRecord);
-
-        // Get wallet by wallet id
-        WalletRecord walletRecordReloaded = getWallet(walletRecord.getWalletId());
-        Assertions.assertEquals(walletRecord.toString(), walletRecordReloaded.toString());
-
-        // Create client for sub wallet
-        AriesClient alice = useWallet(walletRecord.getToken());
-
-        // Create local did
-        //
-        // [#1682] Allow use of SEED when creating local wallet DID
-        // https://github.com/hyperledger/aries-cloudagent-python/issues/1682
-        DID aliceDid = alice.walletDidCreate(DIDCreate.builder().build()).get();
-        log.info("Alice DID: {}", aliceDid);
-
-        selfRegisterDid(aliceDid.getDid(), aliceDid.getVerkey(), ENDORSER);
-
-        // Set the public DID for the wallet
-        alice.walletDidPublic(aliceDid.getDid());
-
+        String walletKey = "keyA";
+        WalletRecord walletRecord = createWalletWithDID("Faber", walletKey, ENDORSER);
+        String walletName = walletRecord.getSettings().getWalletName();
+        String accessToken = walletRecord.getToken();
+        
+        AriesClient client = useWallet(accessToken);
+        DID did = client.walletDidPublic().get();
+        
+        // Verify that we can access the ledger
+        GetNymRoleResponse nymRoleResponse = client.ledgerGetNymRole(did.getDid()).get();
+        log.info("{}: {}", walletName, nymRoleResponse);
+        
         // Delete wallet
         removeWallet(walletRecord.getWalletId(), walletKey);
     }

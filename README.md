@@ -32,16 +32,24 @@ cd von-network
 ./manage up --logs
 ```
 
-#### Running the ACA-Py Agent
+### Running the ACAPy Agent
 
-Hyperledger [Aries Cloud Agent Python (ACA-Py)](https://github.com/hyperledger/aries-cloudagent-python) is a foundation for building decentralized identity applications and services.
+Hyperledger [Aries Cloud Agent Python (ACAPy)](https://github.com/hyperledger/aries-cloudagent-python) is a foundation for building decentralized identity applications and services.
+
+### Build the ACAPy Docker image
 
 ```
 git clone https://github.com/hyperledger/aries-cloudagent-python
 cd aries-cloudagent-python
 
 docker build -t nessus/aries-cloudagent -f ./docker/Dockerfile.run .
+```
 
+### Run ACAPy in single wallet mode
+
+This also gives access to the [Swagger UI](http://localhost:8031)
+
+```
 ACAPY_USER_PORT=8030
 ACAPY_ADMIN_PORT=8031
 ACAPY_ENDPOINT_IP=localhost
@@ -50,7 +58,7 @@ docker run -it --rm nessus/aries-cloudagent start help
 
 # Run in single wallet mode
 docker run -it --rm \
-   --name aries-cloudagent \
+   --name acapy \
    -p ${ACAPY_USER_PORT}:${ACAPY_USER_PORT} \
    -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
    nessus/aries-cloudagent start \
@@ -69,10 +77,20 @@ docker run -it --rm \
       --recreate-wallet \
       --storage-type indy \
       --log-level info
+```
+
+### Run ACAPy in multitenant mode
+
+Use this when you want to run the test cases
+
+```
+ACAPY_USER_PORT=8030
+ACAPY_ADMIN_PORT=8031
+ACAPY_ENDPOINT_IP=localhost
 
 # Run in multitenant mode
 docker run -it --rm \
-   --name aries-cloudagent \
+   --name acapy \
    -p ${ACAPY_USER_PORT}:${ACAPY_USER_PORT} \
    -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
    nessus/aries-cloudagent start \
@@ -93,7 +111,6 @@ docker run -it --rm \
       --wallet-type indy \
       --recreate-wallet \
       --auto-provision \
-      --auto-accept-requests \
-      --auto-respond-messages \
+      --auto-ping-connection \
       --log-level info
 ```
