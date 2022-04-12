@@ -112,5 +112,6 @@ docker run -it --rm \
       --recreate-wallet \
       --auto-provision \
       --auto-ping-connection \
+      --auto-accept-requests \
       --log-level info
 ```

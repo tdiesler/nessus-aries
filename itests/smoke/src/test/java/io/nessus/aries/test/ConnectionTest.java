@@ -3,8 +3,10 @@ package io.nessus.aries.test;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
-import java.io.IOException;
-import java.util.List;
+import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.aries.AriesClient;
@@ -15,88 +17,74 @@ import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.hyperledger.aries.api.connection.CreateInvitationResponse;
 import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import org.hyperledger.aries.webhook.WebSocketEventHandler;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import okhttp3.WebSocket;
+
 /**
- * Test the Acapy wallet endpoint
+ * Test RFC 0160: Connection Protocol with multitenant wallets
+ * 
+ * https://github.com/hyperledger/aries-rfcs/tree/main/features/0160-connection-protocol
  */
 public class ConnectionTest extends AbstractAriesTest {
 
     @Test
     void testMultitenantWallet() throws Exception {
-
+        
         // Create multitenant wallets
-        WalletRecord aliceWallet = createWalletWithDID("Alice", "keyA", null);
-        WalletRecord faberWallet = createWalletWithDID("Faber", "keyB", ENDORSER);
+        WalletRecord aliceWallet = createWallet("Alice").build();
+        WalletRecord faberWallet = createWallet("Faber").role(ENDORSER).build();
+        
+        AriesClient alice = useWallet(aliceWallet);
+        AriesClient faber = useWallet(faberWallet);
+        
+        // [TODO] Faber receives the invitation event multiple times
+        AtomicBoolean faberReceivedInvitation = new AtomicBoolean();
+        
+        CountDownLatch faberActiveLatch = new CountDownLatch(1);
+        WebSocket faberWebSocket = createWebSocket(faberWallet, new WebSocketEventHandler() {
+            
+            // [TODO] Get the service enpoint from the settings event
+            String serviceEndpoint = "http://localhost:8030";
+            
+            @Override
+            public void handleConnection(ConnectionRecord con) throws Exception {
+                String walletName = faberWallet.getSettings().getWalletName();
+                log.info("{} Connection Event: {}", walletName, con);
+                
+                // Faber receives the connection invitation from Alice
+                if (ConnectionState.INVITATION == con.getState() && !faberReceivedInvitation.getAndSet(true)) {
+                    faber.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+                      .recipientKeys(Collections.singletonList(con.getInvitationKey()))
+                      .serviceEndpoint(serviceEndpoint)
+                      .build(), ConnectionReceiveInvitationFilter.builder()
+                          .autoAccept(true)
+                          .build()).get();            
+                }
+                
+                if (ConnectionState.ACTIVE == con.getState()) {
+                    faberActiveLatch.countDown();
+                }
+            }
+        });
         
         try {
-            AriesClient alice = useWallet(aliceWallet.getToken());
-            AriesClient faber = useWallet(faberWallet.getToken());
-            
-            // Faber creates a connection invitation for Alice
-            CreateInvitationResponse faberInvitationResponse = faber.connectionsCreateInvitation(CreateInvitationRequest.builder().build()).get();
-            ConnectionInvitation faberInvitation = faberInvitationResponse.getInvitation();
-            String faberConnectionId = faberInvitationResponse.getConnectionId();
-            log.info("Faber: {}", faberInvitationResponse);
-            log.info("Faber: {}", faberInvitation);
-            
-            assertConnectionState(faberWallet, ConnectionState.INVITATION);
-            
-            // Alice receives the connection invitation from Faber
-            alice.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
-                    .recipientKeys(faberInvitation.getRecipientKeys())
-                    .serviceEndpoint(faberInvitation.getServiceEndpoint())
-                    .build(), ConnectionReceiveInvitationFilter.builder()
-                        .autoAccept(true)
-                        .build()).get();
-            
-            // Faber awaits REQUEST state
-            awaitConnectionState(faberWallet, ConnectionState.REQUEST);
+            // Alice creates a connection invitation for Faber
+            CreateInvitationResponse aliceInvitationResponse = alice.connectionsCreateInvitation(CreateInvitationRequest.builder().build()).get();
+            ConnectionInvitation aliceInvitation = aliceInvitationResponse.getInvitation();
+            log.info("Alice: {}", aliceInvitationResponse);
+            log.info("Alice: {}", aliceInvitation);
 
-            // Faber accepts the connection request
-            faber.connectionsAcceptRequest(faberConnectionId, null);
-            
             // Faber awaits ACTIVE state
-            awaitConnectionState(faberWallet, ConnectionState.ACTIVE);
-
-            // Alice awaits ACTIVE state
-            awaitConnectionState(aliceWallet, ConnectionState.ACTIVE);
+            // Requires --auto-ping-connection otherwise Faber gets stuck in state RESPONSE
+            Assertions.assertTrue(faberActiveLatch.await(10, TimeUnit.SECONDS), "No ACTIVE connection");
             
         } finally {
-            removeWallet(aliceWallet.getWalletId(), "keyA");
-            removeWallet(faberWallet.getWalletId(), "keyB");
+            closeWebSocket(faberWebSocket);
+            removeWallet(aliceWallet);
+            removeWallet(faberWallet);
         }
-    }
-
-    private ConnectionRecord assertConnectionState(WalletRecord wallet, ConnectionState targetState) throws IOException {
-        String walletName = wallet.getSettings().getWalletName();
-        AriesClient client = useWallet(wallet.getToken());
-        List<ConnectionRecord> records = client.connections().get();
-        Assertions.assertEquals(1, records.size(), walletName + ": Unexpected number of connection records");
-        ConnectionRecord rec = records.get(0);
-        String id = rec.getConnectionId();
-        ConnectionState state = rec.getState();
-        log.info("{}: cid={} state={} - {}", walletName, id, state, rec);
-        Assertions.assertEquals(targetState, state, walletName + ": Unexpected connection state");
-        return rec;
-    }
-    
-    private ConnectionRecord awaitConnectionState(WalletRecord wallet, ConnectionState targetState) throws Exception {
-        String walletName = wallet.getSettings().getWalletName();
-        AriesClient client = useWallet(wallet.getToken());
-        for (int i = 0; i < 10; i++) {
-            List<ConnectionRecord> records = client.connections().get();
-            if (records.isEmpty()) log.info("{}: No connection records");
-            for (ConnectionRecord rec : records) {
-                String id = rec.getConnectionId();
-                ConnectionState state = rec.getState();
-                log.info("{}: cid={} state={} - {}", walletName, id, state, rec);
-                if (state == targetState) 
-                    return rec;
-            }
-            Thread.sleep(2000);
-        }
-        throw new RuntimeException(String.format("%s: %s connection state not reached", walletName, targetState));
     }
 }

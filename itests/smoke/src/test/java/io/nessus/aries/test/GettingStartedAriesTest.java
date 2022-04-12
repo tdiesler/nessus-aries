@@ -7,8 +7,6 @@ import java.util.Arrays;
 import java.util.Map;
 
 import org.hyperledger.acy_py.generated.model.DID;
-import org.hyperledger.acy_py.generated.model.DIDCreate;
-import org.hyperledger.acy_py.generated.model.GetNymRoleResponse;
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionStaticRequest;
@@ -43,32 +41,22 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
     class Context {
 
         DID governmentDid;
-        String governmentWalletId;
-        String governmentWalletKey;
-        String governmentAccessToken;
+        WalletRecord governmentWallet;
 
         DID faberDid;
-        String faberWalletId;
-        String faberWalletKey;
-        String faberAccessToken;
+        WalletRecord faberWallet;
         String faberTranscriptCredDefId;
 
         DID acmeDid;
-        String acmeWalletId;
-        String acmeWalletKey;
-        String acmeAccessToken;
+        WalletRecord acmeWallet;
         String acmeJobCertificateCredDefId;
         String acmeJobCertificateRevocationRegistryId;
 
         DID thriftDid;
-        String thriftWalletId;
-        String thriftWalletKey;
-        String thriftAccessToken;
+        WalletRecord thriftWallet;
 
         DID aliceDid;
-        String aliceWalletId;
-        String aliceWalletKey;
-        String aliceAccessToken;
+        WalletRecord aliceWallet;
         String faberAliceConnectionId;
 
         String transcriptSchemaId;
@@ -260,77 +248,62 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     private void onboardGovernment(Context ctx) throws IOException {
 
-        String walletKey = "govwkey";
-        WalletRecord walletRecord = createWalletWithDID("Government", walletKey, ENDORSER);
+        WalletRecord wallet = createWallet("Government").role(ENDORSER).build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient client = useWallet(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.governmentWalletId = walletRecord.getWalletId();
-        ctx.governmentAccessToken = walletRecord.getToken();
-        ctx.governmentWalletKey = walletKey;
+        ctx.governmentWallet = wallet;
         ctx.governmentDid = publicDid;
 
     }
 
     private void onboardFaberColledge(Context ctx) throws IOException {
 
-        String walletKey = "fabwkey";
-        WalletRecord walletRecord = createWalletWithDID("Faber", walletKey, ENDORSER);
+        WalletRecord wallet = createWallet("Faber").role(ENDORSER).build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient client = useWallet(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.faberWalletId = walletRecord.getWalletId();
-        ctx.faberAccessToken = walletRecord.getToken();
-        ctx.faberWalletKey = walletKey;
+        ctx.faberWallet = wallet;
         ctx.faberDid = publicDid;
     }
 
     private void onboardAcmeCorp(Context ctx) throws IOException {
 
-        String walletKey = "acmewkey";
-        WalletRecord walletRecord = createWalletWithDID("Acme", walletKey, ENDORSER);
+        WalletRecord wallet = createWallet("Acme").role(ENDORSER).build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient client = useWallet(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.acmeWalletId = walletRecord.getWalletId();
-        ctx.acmeAccessToken = walletRecord.getToken();
-        ctx.acmeWalletKey = walletKey;
+        ctx.acmeWallet = wallet;
         ctx.acmeDid = publicDid;
     }
 
     private void onboardThriftBank(Context ctx) throws IOException {
 
-        String walletKey = "thriftwkey";
-        WalletRecord walletRecord = createWalletWithDID("Thrift", walletKey, ENDORSER);
+        WalletRecord wallet = createWallet("Thrift").role(ENDORSER).build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient client = useWallet(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.thriftWalletId = walletRecord.getWalletId();
-        ctx.thriftAccessToken = walletRecord.getToken();
-        ctx.thriftWalletKey = walletKey;
+        ctx.thriftWallet = wallet;
         ctx.thriftDid = publicDid;
     }
 
     private void onboardAlice(Context ctx) throws IOException {
 
-        String walletKey = "alicewkey";
-        WalletRecord walletRecord = createWalletWithDID("Alice", walletKey, null);
+        WalletRecord wallet = createWallet("Alice").build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(walletRecord.getToken());
+        AriesClient client = useWallet(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.aliceWalletId = walletRecord.getWalletId();
-        ctx.aliceAccessToken = walletRecord.getToken();
-        ctx.aliceWalletKey = walletKey;
+        ctx.aliceWallet = wallet;
         ctx.aliceDid = publicDid;
     }
 
@@ -340,7 +313,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient government = useWallet(ctx.governmentAccessToken);
+        AriesClient government = useWallet(ctx.governmentWallet);
 
         SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
                 .schemaVersion("1.2")
@@ -357,7 +330,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient government = useWallet(ctx.governmentAccessToken);
+        AriesClient government = useWallet(ctx.governmentWallet);
 
         SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
                 .schemaVersion("0.2")
@@ -373,7 +346,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // 1. Faber get the Transcript Credential Schema
 
         // Create client for sub wallet
-        AriesClient faber = useWallet(ctx.faberAccessToken);
+        AriesClient faber = useWallet(ctx.faberWallet);
 
         Schema schema = faber.schemasGetById(ctx.transcriptSchemaId).get();
         log.info("{}", schema);
@@ -394,7 +367,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // 1. Acme get the Transcript Credential Schema
 
         // Create client for sub wallet
-        AriesClient acme = useWallet(ctx.acmeAccessToken);
+        AriesClient acme = useWallet(ctx.acmeWallet);
 
         Schema schema = acme.schemasGetById(ctx.jobCertificateSchemaId).get();
         log.info("{}", schema);
@@ -454,7 +427,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          */
 
         // Create client for sub wallet
-        AriesClient faber = useWallet(ctx.faberAccessToken);
+        AriesClient faber = useWallet(ctx.faberWallet);
 
         ConnectionStaticResult connectionResult = faber.connectionsCreateStatic(ConnectionStaticRequest.builder()
                 .theirDid(ctx.aliceDid.getDid())
@@ -479,7 +452,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         log.info("{}", credentialExchange);
 
         // Create client for sub wallet
-        AriesClient alice = useWallet(ctx.aliceAccessToken);
+        AriesClient alice = useWallet(ctx.aliceWallet);
 
         for (V1CredentialExchange credex : alice.issueCredentialRecords(null).get()) {
             log.info("{}", credex);
@@ -556,10 +529,10 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
     }
 
     private void closeAndDeleteWallets(Context ctx) throws IOException {
-        removeWallet(ctx.governmentWalletId, ctx.governmentWalletKey);
-        removeWallet(ctx.faberWalletId, ctx.faberWalletKey);
-        removeWallet(ctx.acmeWalletId, ctx.acmeWalletKey);
-        removeWallet(ctx.thriftWalletId, ctx.thriftWalletKey);
-        removeWallet(ctx.aliceWalletId, ctx.aliceWalletKey);
+        removeWallet(ctx.governmentWallet);
+        removeWallet(ctx.faberWallet);
+        removeWallet(ctx.acmeWallet);
+        removeWallet(ctx.thriftWallet);
+        removeWallet(ctx.aliceWallet);
     }
 }

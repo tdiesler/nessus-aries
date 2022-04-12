@@ -18,12 +18,10 @@ public class WalletTest extends AbstractAriesTest {
     void testMultitenantWallet() throws Exception {
 
         // Create multitenant wallet
-        String walletKey = "keyA";
-        WalletRecord walletRecord = createWalletWithDID("Faber", walletKey, ENDORSER);
-        String walletName = walletRecord.getSettings().getWalletName();
-        String accessToken = walletRecord.getToken();
+        WalletRecord wallet = createWallet("Faber").role(ENDORSER).build();
+        String walletName = wallet.getSettings().getWalletName();
         
-        AriesClient client = useWallet(accessToken);
+        AriesClient client = useWallet(wallet);
         DID did = client.walletDidPublic().get();
         
         // Verify that we can access the ledger
@@ -31,6 +29,6 @@ public class WalletTest extends AbstractAriesTest {
         log.info("{}: {}", walletName, nymRoleResponse);
         
         // Delete wallet
-        removeWallet(walletRecord.getWalletId(), walletKey);
+        removeWallet(wallet);
     }
 }
