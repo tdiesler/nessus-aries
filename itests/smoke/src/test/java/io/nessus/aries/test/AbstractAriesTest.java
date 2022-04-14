@@ -1,5 +1,7 @@
 package io.nessus.aries.test;
 
+import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -8,14 +10,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.acy_py.generated.model.DIDCreate;
-import org.hyperledger.acy_py.generated.model.DIDCreate.MethodEnum;
-import org.hyperledger.acy_py.generated.model.DIDCreateOptions;
-import org.hyperledger.acy_py.generated.model.DIDCreateOptions.KeyTypeEnum;
 import org.hyperledger.acy_py.generated.model.DIDEndpoint;
+import org.hyperledger.acy_py.generated.model.RegisterLedgerNymResponse;
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionState;
 import org.hyperledger.aries.api.ledger.IndyLedgerRoles;
+import org.hyperledger.aries.api.ledger.RegisterNymFilter;
 import org.hyperledger.aries.api.multitenancy.CreateWalletRequest;
 import org.hyperledger.aries.api.multitenancy.RemoveWalletRequest;
 import org.hyperledger.aries.api.multitenancy.WalletDispatchType;
@@ -52,13 +53,13 @@ public abstract class AbstractAriesTest {
         .callTimeout(60, TimeUnit.SECONDS)
         .build();
 
-    private static final Gson gson = GsonConfig.defaultConfig();
-
     private static final AriesClient baseClient = AriesClient.builder()
             .url(ACAPY_ADMIN_URL)
             .apiKey(ACAPY_API_KEY)
             .client(httpClient)
             .build();
+
+    public static final Gson gson = GsonConfig.defaultConfig();
 
     public static OkHttpClient getHttpClient() {
         return httpClient;
@@ -140,10 +141,32 @@ public abstract class AbstractAriesTest {
         ws.close(1000, null);
     }
 
-    public MultitenantWalletBuilder createWallet(String name) {
-        return new MultitenantWalletBuilder(name);
+    public WalletRecord createWallet(String walletName) throws IOException {
+        return createWallet(null, walletName, null);
     }
-    
+
+    public WalletRecord createWallet(String walletName, IndyLedgerRoles ledgerRole) throws IOException {
+        return createWallet(null, walletName, ledgerRole);
+    }
+
+    public WalletRecord createWallet(WalletRecord trustee, String walletName, IndyLedgerRoles ledgerRole) throws IOException {
+        WalletRecord walletRecord;
+        if (ledgerRole == TRUSTEE) {
+            walletRecord = new WalletBuilder(walletName)
+                .ledgerRole(ledgerRole)
+                .selfRegister()
+                .build();
+        } else if (ledgerRole != null) {
+            walletRecord = new WalletBuilder(walletName)
+                    .ledgerRole(ledgerRole)
+                    .trustee(trustee)
+                    .build();
+        } else {
+            walletRecord = new WalletBuilder(walletName).build();
+        }
+        return walletRecord;
+    }
+
     public WalletRecord findWalletById(String walletId) {
         return walletsCache.get(walletId);
     }
@@ -165,34 +188,48 @@ public abstract class AbstractAriesTest {
         }
     }
     
-    public class MultitenantWalletBuilder {
+    public class WalletBuilder {
         
         private final String walletName;
         private String walletKey;
-        private IndyLedgerRoles ledgerRole;
         private WalletDispatchType dispatchType = WalletDispatchType.DEFAULT;
         private WalletType walletType = WalletType.INDY;
+        private boolean selfRegister;
+        private WalletRecord trusteeWallet;
+        private IndyLedgerRoles ledgerRole;
         
-        public MultitenantWalletBuilder(String walletName) {
+        public WalletBuilder(String walletName) {
             this.walletName = walletName;
         }
 
-        public MultitenantWalletBuilder key(String key) {
+        public WalletBuilder key(String key) {
             this.walletKey = key;
             return this;
         }
 
-        public MultitenantWalletBuilder type(WalletType type) {
+        public WalletBuilder type(WalletType type) {
             this.walletType = type;
             return this;
         }
 
-        public MultitenantWalletBuilder role(IndyLedgerRoles role) {
+        public WalletBuilder ledgerRole(IndyLedgerRoles role) {
+            this.selfRegister = true;
             this.ledgerRole = role;
             return this;
         }
-
+        
+        public WalletBuilder selfRegister() {
+            this.selfRegister = true;
+            return this;
+        }
+        
+        public WalletBuilder trustee(WalletRecord trusteeWallet) {
+            this.trusteeWallet = trusteeWallet;
+            return this;
+        }
+        
         public WalletRecord build() throws IOException {
+            
             CreateWalletRequest walletRequest = CreateWalletRequest.builder()
                     .walletKey(walletKey != null ? walletKey : walletName + "Key")
                     .walletDispatchType(dispatchType)
@@ -200,24 +237,45 @@ public abstract class AbstractAriesTest {
                     .walletType(walletType)
                     .build();
             log.info("CreateWalletRequest: {}", gson.toJson(walletRequest));
+            
             WalletRecord walletRecord = baseClient.multitenancyWalletCreate(walletRequest).get();
             String walletId = walletRecord.getWalletId();
             log.info("{}: [{}] {}", walletName, walletId, walletRecord);
 
             String accessToken = walletRecord.getToken();
             log.info("{} Token: {}", walletName, accessToken);
-            
-            // Create a public Did for the wallet
+
             if (ledgerRole != null) {
                 
+                Assertions.assertTrue(selfRegister || trusteeWallet != null, "Allow self register or provide Trustee");
+                
+                DID did = null;
                 AriesClient client = useWallet(walletRecord);
                 
-                // Create a local DID for the wallet
-                DID did = client.walletDidCreate(DIDCreate.builder().build()).get();
-                
-                // Register DID with the leder (out-of-band)
-                selfRegisterWithDid(walletName, did.getDid(), did.getVerkey(), ledgerRole);
-                log.info("{}: {}", walletName, did);
+                if (selfRegister) {
+                    
+                    // Create a local DID for the wallet
+                    did = client.walletDidCreate(DIDCreate.builder().build()).get();
+                    log.info("{}: {}", walletName, did);
+                    
+                    // Register DID with the leder (out-of-band)
+                    selfRegisterWithDid(walletName, did.getDid(), did.getVerkey(), ledgerRole);
+                    
+                } else if (trusteeWallet != null) {
+                    
+                    // Create a local DID for the wallet
+                    did = client.walletDidCreate(DIDCreate.builder().build()).get();
+                    log.info("{}: {}", walletName, did);
+                    
+                    AriesClient trustee = useWallet(trusteeWallet);
+                    String trusteeName = trusteeWallet.getSettings().getWalletName();
+                    RegisterLedgerNymResponse nymResponse = trustee.ledgerRegisterNym(RegisterNymFilter.builder()
+                            .did(did.getDid())
+                            .verkey(did.getVerkey())
+                            .role(ledgerRole)
+                            .build()).get();
+                    log.info("{}: {}", trusteeName, nymResponse);
+                }
                 
                 // Set the public DID for the wallet
                 client.walletDidPublic(did.getDid());
@@ -229,6 +287,5 @@ public abstract class AbstractAriesTest {
             walletsCache.put(walletId, walletRecord);
             return walletRecord;
         }
-
     }
 }

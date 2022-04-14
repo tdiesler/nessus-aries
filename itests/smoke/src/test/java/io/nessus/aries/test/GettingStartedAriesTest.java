@@ -1,6 +1,7 @@
 package io.nessus.aries.test;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
+import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -125,7 +126,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * We call the process of establish a connection Onboarding.
          */
 
-        onboardFaberColledge(ctx);
+        onboardFaberCollege(ctx);
         onboardAcmeCorp(ctx);
 //        onboardThriftBank(ctx);
         onboardAlice(ctx);
@@ -248,7 +249,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     private void onboardGovernment(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet("Government").role(ENDORSER).build();
+        WalletRecord wallet = createWallet("Government", TRUSTEE);
 
         // Create client for sub wallet
         AriesClient client = useWallet(wallet);
@@ -258,9 +259,9 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         ctx.governmentDid = publicDid;
     }
 
-    private void onboardFaberColledge(Context ctx) throws IOException {
+    private void onboardFaberCollege(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet("Faber").role(ENDORSER).build();
+        WalletRecord wallet = createWallet(ctx.governmentWallet, "Faber", ENDORSER);
 
         // Create client for sub wallet
         AriesClient client = useWallet(wallet);
@@ -272,7 +273,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     private void onboardAcmeCorp(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet("Acme").role(ENDORSER).build();
+        WalletRecord wallet = createWallet(ctx.governmentWallet, "Acme", ENDORSER);
 
         // Create client for sub wallet
         AriesClient client = useWallet(wallet);
@@ -284,7 +285,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     private void onboardThriftBank(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet("Thrift").role(ENDORSER).build();
+        WalletRecord wallet = createWallet(ctx.governmentWallet, "Thrift", ENDORSER);
 
         // Create client for sub wallet
         AriesClient client = useWallet(wallet);
@@ -296,7 +297,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     private void onboardAlice(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet("Alice").build();
+        WalletRecord wallet = new WalletBuilder("Alice").build();
 
         // Create client for sub wallet
         AriesClient client = useWallet(wallet);

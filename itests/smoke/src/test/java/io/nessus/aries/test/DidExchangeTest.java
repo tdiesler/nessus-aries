@@ -2,8 +2,7 @@
 package io.nessus.aries.test;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
-
-import java.io.IOException;
+import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.aries.AriesClient;
@@ -27,26 +26,26 @@ public class DidExchangeTest extends AbstractAriesTest {
     void testDidExchange() throws Exception {
 
         // Create multitenant wallets
-        WalletRecord governWallet = createWallet("Government").role(ENDORSER).build();
-        WalletRecord faberWallet = createWallet("Faber").role(ENDORSER).build();
+        WalletRecord govrnWallet = createWallet("Government", TRUSTEE);
+        WalletRecord faberWallet = createWallet(govrnWallet, "Faber", ENDORSER);
         
         AriesClient faber = useWallet(faberWallet);
-        AriesClient govern = useWallet(governWallet);
+        AriesClient govern = useWallet(govrnWallet);
         
-        WebSocket governWebSocket = createWebSocket(governWallet, new TenantAwareEventHandler() {
+        WebSocket governWebSocket = createWebSocket(govrnWallet, new TenantAwareEventHandler() {
             
             @Override
             public void handleRaw(String walletId, String topic, String payload) {
                 String sourceWallet = findWalletNameById(walletId);
-                String myWalletName = governWallet.getSettings().getWalletName();
+                String myWalletName = govrnWallet.getSettings().getWalletName();
                 log.info("{} Event {}: [@{}] {}", myWalletName, topic, sourceWallet, payload);
             }
 
             @Override
             public void handleConnection(String walletId, ConnectionRecord con) {
                 String sourceWallet = findWalletNameById(walletId);
-                String myWalletName = governWallet.getSettings().getWalletName();
-                String myWalletId = governWallet.getWalletId();
+                String myWalletName = govrnWallet.getSettings().getWalletName();
+                String myWalletId = govrnWallet.getWalletId();
                 ConnectionState state = con.getState();
                 log.info("{} Event: [@{}] [{}] {}", myWalletName, sourceWallet, state, con);
                 
@@ -123,7 +122,7 @@ public class DidExchangeTest extends AbstractAriesTest {
         } finally {
             faberWebSocket.close(1000, null);
             governWebSocket.close(1000, null);
-            removeWallet(governWallet);
+            removeWallet(govrnWallet);
             removeWallet(faberWallet);
         }
     }

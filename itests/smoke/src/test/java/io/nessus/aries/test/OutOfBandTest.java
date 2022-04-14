@@ -28,8 +28,8 @@ public class OutOfBandTest extends AbstractAriesTest {
     void testOutOfBand() throws Exception {
 
         // Create multitenant wallets
-        WalletRecord aliceWallet = createWallet("Alice").build();
-        WalletRecord faberWallet = createWallet("Faber").role(ENDORSER).build();
+        WalletRecord faberWallet = createWallet("Faber", ENDORSER);
+        WalletRecord aliceWallet = createWallet("Alice");
         
         try {
             AriesClient alice = useWallet(aliceWallet);
