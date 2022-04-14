@@ -4,12 +4,13 @@ package io.nessus.aries.test.websocket;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.hyperledger.aries.webhook.WebSocketEventHandler;
-import org.hyperledger.aries.webhook.WebSocketListener;
+import org.hyperledger.aries.webhook.IEventHandler;
+import org.hyperledger.aries.webhook.TenantAwareEventHandler;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.common.WebSocketListener;
 import io.nessus.aries.test.AbstractAriesTest;
 import okhttp3.Request;
 import okhttp3.WebSocket;
@@ -27,10 +28,10 @@ public class UnauthorizedWebSocketTest extends AbstractAriesTest {
         
         CountDownLatch latch = new CountDownLatch(2);
         
-        WebSocketEventHandler handler = new WebSocketEventHandler() {
+        IEventHandler handler = new TenantAwareEventHandler() {
             @Override
-            public void handleRaw(String topic, String message) {
-                log.info("{}: {}", topic, message);
+            public void handleRaw(String topic, String walletId, String message) {
+                log.info("{}: [{}] {}", topic, walletId, message);
                 latch.countDown();
             }
         };

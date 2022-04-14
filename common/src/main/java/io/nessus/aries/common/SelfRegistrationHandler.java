@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.StringUtils;
+import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.aries.api.exception.AriesException;
 import org.hyperledger.aries.api.ledger.IndyLedgerRoles;
 import org.hyperledger.aries.config.GsonConfig;
@@ -37,18 +38,35 @@ public class SelfRegistrationHandler {
                 .build();
     }
 
-    public boolean registerDID(String did, String verkey, IndyLedgerRoles role) throws IOException {
+    public boolean registerWithDID(String alias, String did, String verkey, IndyLedgerRoles role) throws IOException {
         JsonObject json = new JsonObject();
         json.addProperty("did", did);
         json.addProperty("verkey", verkey);
+        if (alias != null)
+            json.addProperty("alias", alias);
         if (role != null)
             json.addProperty("role", role.toString());
         log.info("Self register: {}", json);
         String res = call(buildPost(json));
-        gson.fromJson(res, JsonObject.class);
+        json = gson.fromJson(res, JsonObject.class);
+        log.info("Respose: {}", json);
         return true;
     }
 
+    public DID registerWithSeed(String alias, String seed, IndyLedgerRoles role) throws IOException {
+        JsonObject json = new JsonObject();
+        json.addProperty("seed", seed);
+        if (alias != null)
+            json.addProperty("alias", alias);
+        if (role != null)
+            json.addProperty("role", role.toString());
+        log.info("Self register: {}", json);
+        String res = call(buildPost(json));
+        DID did = gson.fromJson(res, DID.class);
+        log.info("Respose: {}", did);
+        return did;
+    }
+    
     private Request buildPost(Object body) {
         MediaType JSON_TYPE = MediaType.get("application/json; charset=utf-8");
         RequestBody jsonBody = RequestBody.create(gson.toJson(body), JSON_TYPE);

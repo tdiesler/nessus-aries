@@ -256,7 +256,6 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.governmentWallet = wallet;
         ctx.governmentDid = publicDid;
-
     }
 
     private void onboardFaberColledge(Context ctx) throws IOException {

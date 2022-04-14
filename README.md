@@ -52,7 +52,7 @@ This also gives access to the [Swagger UI](http://localhost:8031)
 ```
 ACAPY_USER_PORT=8030
 ACAPY_ADMIN_PORT=8031
-ACAPY_ENDPOINT_IP=localhost
+ACAPY_HOST=localhost
 
 docker run -it --rm nessus/aries-cloudagent start help
 
@@ -63,7 +63,7 @@ docker run -it --rm \
    -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
    nessus/aries-cloudagent start \
       --genesis-url http://host.docker.internal:9000/genesis \
-      --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_USER_PORT} \
+      --endpoint http://${ACAPY_HOST}:${ACAPY_USER_PORT} \
       --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
       --outbound-transport http \
       --admin 0.0.0.0 ${ACAPY_ADMIN_PORT} \
@@ -86,7 +86,7 @@ Use this when you want to run the test cases
 ```
 ACAPY_USER_PORT=8030
 ACAPY_ADMIN_PORT=8031
-ACAPY_ENDPOINT_IP=localhost
+ACAPY_HOST=localhost
 
 # Run in multitenant mode
 docker run -it --rm \
@@ -95,7 +95,7 @@ docker run -it --rm \
    -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
    nessus/aries-cloudagent start \
       --genesis-url http://host.docker.internal:9000/genesis \
-      --endpoint http://${ACAPY_ENDPOINT_IP}:${ACAPY_USER_PORT} \
+      --endpoint http://${ACAPY_HOST}:${ACAPY_USER_PORT} \
       --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT} \
       --outbound-transport http \
       --storage-type indy \
