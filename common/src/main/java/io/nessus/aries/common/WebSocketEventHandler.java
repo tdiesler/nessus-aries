@@ -16,19 +16,11 @@ public class WebSocketEventHandler extends TenantAwareEventHandler {
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
-    protected final WalletRecord myWallet;
+    protected WalletRecord myWallet;
     protected String myWalletName;
     protected String myWalletId;
     protected String serviceEndpoint;
     protected DID myPublicDid;
-
-    public WebSocketEventHandler(WalletRecord wallet) {
-        this.myWallet = wallet;
-    }
-
-    public WebSocketEventHandler() {
-        this.myWallet = null;
-    }
 
     protected AriesClient createClient() throws IOException {
         return Configuration.createClient(myWallet);

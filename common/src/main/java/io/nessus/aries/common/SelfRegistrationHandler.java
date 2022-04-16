@@ -1,7 +1,6 @@
 package io.nessus.aries.common;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.StringUtils;
 import org.hyperledger.acy_py.generated.model.DID;
@@ -30,12 +29,7 @@ public class SelfRegistrationHandler {
 
     public SelfRegistrationHandler(String url) {
         this.networkURL = url;
-        this.httpClient = new OkHttpClient.Builder()
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
-                .connectTimeout(60, TimeUnit.SECONDS)
-                .callTimeout(60, TimeUnit.SECONDS)
-                .build();
+        this.httpClient = HttpClient.createHttpClient();
     }
 
     public boolean registerWithDID(String alias, String did, String verkey, IndyLedgerRoles role) throws IOException {

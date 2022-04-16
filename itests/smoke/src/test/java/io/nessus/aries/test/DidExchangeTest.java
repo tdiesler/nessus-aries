@@ -1,6 +1,7 @@
 
 package io.nessus.aries.test;
 
+import static io.nessus.aries.common.WebSockets.createWebSocket;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 

@@ -11,6 +11,9 @@ public class Configuration {
     public static final String ACAPY_USER_URL = "http://localhost:8030";
     public static final String ACAPY_API_KEY = "adminkey";
 
+    // Hide ctor
+    private Configuration() {}
+    
     /**
      * Create a client for a multitenant wallet
      */

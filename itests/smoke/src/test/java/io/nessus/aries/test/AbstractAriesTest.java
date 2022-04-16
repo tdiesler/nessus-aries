@@ -2,7 +2,6 @@ package io.nessus.aries.test;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.acy_py.generated.model.DIDCreate;
@@ -19,7 +18,6 @@ import org.hyperledger.aries.api.multitenancy.WalletDispatchType;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.api.multitenancy.WalletType;
 import org.hyperledger.aries.config.GsonConfig;
-import org.hyperledger.aries.webhook.AriesWebSocketListener;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,39 +25,24 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 
 import io.nessus.aries.common.Configuration;
+import io.nessus.aries.common.HttpClient;
 import io.nessus.aries.common.SelfRegistrationHandler;
 import io.nessus.aries.common.WalletRegistry;
-import io.nessus.aries.common.WebSocketEventHandler;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.WebSocket;
 
 public abstract class AbstractAriesTest {
 
     public final Logger log = LoggerFactory.getLogger(getClass());
     
-    private static final OkHttpClient httpClient = new OkHttpClient.Builder()
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .callTimeout(60, TimeUnit.SECONDS)
-        .build();
+    public static final OkHttpClient httpClient = HttpClient.createHttpClient();
 
-    private static final AriesClient baseClient = AriesClient.builder()
+    public static final AriesClient baseClient = AriesClient.builder()
             .url(Configuration.ACAPY_ADMIN_URL)
             .apiKey(Configuration.ACAPY_API_KEY)
             .client(httpClient)
             .build();
 
     public static final Gson gson = GsonConfig.defaultConfig();
-
-    public static OkHttpClient getHttpClient() {
-        return httpClient;
-    }
-
-    public static AriesClient getBaseClient() {
-        return baseClient;
-    }
 
     /**
      * Create a client for a multitenant wallet
@@ -96,21 +79,6 @@ public abstract class AbstractAriesTest {
         return rec;
     }
     
-    public WebSocket createWebSocket(WalletRecord wallet, WebSocketEventHandler handler) {
-        String token = wallet.getToken();
-        String walletName = wallet.getSettings().getWalletName();
-        WebSocket webSocket = getHttpClient().newWebSocket(new Request.Builder()
-                .url("ws://localhost:8031/ws")
-                .header("X-API-Key", Configuration.ACAPY_API_KEY)
-                .header("Authorization", "Bearer " + token)
-                .build(), new AriesWebSocketListener(walletName, handler));
-        return webSocket;
-    }
-    
-    public void closeWebSocket(WebSocket ws) {
-        ws.close(1000, null);
-    }
-
     public void removeWallet(WalletRecord wallet) throws IOException {
         if (wallet != null) {
             String walletId = wallet.getWalletId();

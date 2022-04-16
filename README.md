@@ -45,9 +45,9 @@ cd aries-cloudagent-python
 docker build -t nessus/aries-cloudagent -f ./docker/Dockerfile.run .
 ```
 
-### Run ACAPy in single wallet mode
+### Run ACAPy in insecure multitenant mode
 
-This also gives access to the [Swagger UI](http://localhost:8031)
+This gives access to the [Swagger UI](http://localhost:8031)
 
 ```
 ACAPY_USER_PORT=8030
@@ -59,7 +59,6 @@ docker run -it --rm nessus/aries-cloudagent start help
 # Run in single wallet mode
 docker run -it --rm \
    --name acapy \
-   -p ${ACAPY_USER_PORT}:${ACAPY_USER_PORT} \
    -p ${ACAPY_ADMIN_PORT}:${ACAPY_ADMIN_PORT}  \
    nessus/aries-cloudagent start \
       --genesis-url http://host.docker.internal:9000/genesis \
@@ -68,14 +67,9 @@ docker run -it --rm \
       --outbound-transport http \
       --admin 0.0.0.0 ${ACAPY_ADMIN_PORT} \
       --admin-insecure-mode \
-      --auto-provision \
-      --seed 000000000000000000000000Trustee1 \
-      --wallet-storage-type default \
-      --wallet-key trusteewkey \
-      --wallet-name trustee \
-      --wallet-type indy \
-      --recreate-wallet \
-      --storage-type indy \
+      --multitenant \
+      --multitenant-admin \
+      --jwt-secret jwtsecret \
       --log-level info
 ```
 

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.common.WebSockets;
 import io.nessus.aries.test.AbstractAriesTest;
 import okhttp3.Request;
 import okhttp3.WebSocket;
@@ -36,7 +37,7 @@ public class UnauthorizedWebSocketTest extends AbstractAriesTest {
             }
         };
         
-        WebSocket webSocket = getHttpClient().newWebSocket(new Request.Builder()
+        WebSocket webSocket = httpClient.newWebSocket(new Request.Builder()
                 .url("ws://localhost:8031/ws")
                 //.header("X-API-Key", ACAPY_API_KEY)
                 //.header("Authorization", "Bearer " + token)
@@ -47,7 +48,7 @@ public class UnauthorizedWebSocketTest extends AbstractAriesTest {
             Assertions.assertFalse(latch.await(10, TimeUnit.SECONDS), "No messages expected");
             
         } finally {
-            closeWebSocket(webSocket);
+            WebSockets.closeWebSocket(webSocket);
         }
     }
 }

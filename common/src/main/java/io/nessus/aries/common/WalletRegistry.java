@@ -8,6 +8,9 @@ import org.hyperledger.aries.api.multitenancy.WalletRecord;
 
 public class WalletRegistry {
     
+    // Hide ctor
+    private WalletRegistry() {}
+    
     private static final Map<String, WalletRecord> walletsCache = Collections.synchronizedMap(new HashMap<>());
 
     public static void putWallet(WalletRecord wallet) {
