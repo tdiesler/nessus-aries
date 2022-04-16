@@ -1,71 +1,55 @@
-/*
- * Copyright (c) 2020-2022 - for information on the respective copyright owner
- * see the NOTICE file and/or the repository at
- * https://github.com/hyperledger-labs/acapy-java-client
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 package io.nessus.aries.common;
 
-import org.hyperledger.aries.config.GsonConfig;
-import org.hyperledger.aries.webhook.IEventHandler;
+import java.io.IOException;
+
+import org.hyperledger.acy_py.generated.model.DID;
+import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.api.connection.ConnectionRecord;
+import org.hyperledger.aries.api.connection.ConnectionState;
+import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import org.hyperledger.aries.api.settings.Settings;
+import org.hyperledger.aries.webhook.TenantAwareEventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
-
-import okhttp3.Response;
-import okhttp3.WebSocket;
-
-public class WebSocketEventHandler extends okhttp3.WebSocketListener {
-
-    static final Logger log = LoggerFactory.getLogger(WebSocketEventHandler.class);
+public class WebSocketEventHandler extends TenantAwareEventHandler {
     
-    private Gson gson = GsonConfig.defaultConfig();
+    protected final Logger log = LoggerFactory.getLogger(getClass());
     
-    private final String label;
-    private final IEventHandler handler;
-    
-    public WebSocketEventHandler(String label, IEventHandler handler) {
-        this.label = label;
-        this.handler = handler;
+    protected final WalletRecord myWallet;
+    protected String myWalletName;
+    protected String myWalletId;
+    protected String serviceEndpoint;
+    protected DID myPublicDid;
+
+    public WebSocketEventHandler(WalletRecord wallet) {
+        this.myWallet = wallet;
+    }
+
+    public WebSocketEventHandler() {
+        this.myWallet = null;
+    }
+
+    protected AriesClient createClient() throws IOException {
+        return Configuration.createClient(myWallet);
     }
     
     @Override
-    public void onOpen(WebSocket webSocket, Response response) {
-        log.debug("{} Open: {}", label, response);
-    }
-    
-    @Override
-    public void onMessage(WebSocket webSocket, String message) {
-        log.debug("{} Event: {}", label, message);
-        try {
-            JsonObject json = gson.fromJson(message, JsonObject.class);
-            String topic = json.get("topic").getAsString();
-            String payload = json.has("payload") ? json.get("payload").toString() : null;
-            String walletId = json.has("wallet_id") ? json.get("wallet_id").getAsString() : null;
-            handler.handleEvent(walletId, topic, payload);
-        } catch (JsonSyntaxException ex) {
-            log.error("JsonSyntaxException", ex);
+    public void handleSettings(String walletId, Settings settings) throws IOException {
+        if (myWallet != null) {
+            this.myWalletId = myWallet.getWalletId();
+            this.myWalletName = myWallet.getSettings().getWalletName();
+            this.myPublicDid = createClient().walletDidPublic().orElse(null);
         }
+        this.serviceEndpoint = settings.getEndpoint();
+        log.info("{} Settings: [{}] {}", myWalletName, walletId, settings);
+        log.info("{} Public DID: {}", myWalletName, myPublicDid);
     }
 
     @Override
-    public void onFailure(WebSocket webSocket, Throwable th, Response response) {
-        String message = response != null ? response.message() : th.getMessage();
-        if (!"Socket closed".equals(message))
-            log.error(String.format("%s Failure: %s", label, message), th);
-    }
-
-    @Override
-    public void onClosing(WebSocket webSocket, int code, String reason) {
-        log.trace("{} Closing: {} {}", label, code, reason);
-    }
-
-    @Override
-    public void onClosed(WebSocket webSocket, int code, String reason) {
-        log.debug("{} Closed: {} {}", label, code, reason);
+    public void handleConnection(String walletId, ConnectionRecord con) throws Exception {
+        ConnectionState state = con.getState();
+        String theirWalletName = WalletRegistry.getWalletName(walletId);
+        log.info("{} Connection: [@{}] [{}] {}", myWalletName, theirWalletName, state, con);
     }
 }

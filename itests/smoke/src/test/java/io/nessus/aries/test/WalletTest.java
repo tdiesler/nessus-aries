@@ -18,10 +18,11 @@ public class WalletTest extends AbstractAriesTest {
     void testMultitenantWallet() throws Exception {
 
         // Create multitenant wallet
-        WalletRecord faberWallet = createWallet("Faber", ENDORSER);
+        WalletRecord faberWallet = new WalletBuilder("Faber")
+                .ledgerRole(ENDORSER).selfRegisterNym().build();
         String walletName = faberWallet.getSettings().getWalletName();
         
-        AriesClient client = useWallet(faberWallet);
+        AriesClient client = createClient(faberWallet);
         DID did = client.walletDidPublic().get();
         
         // Verify that we can access the ledger

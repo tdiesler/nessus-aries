@@ -4,13 +4,13 @@ package io.nessus.aries.test.websocket;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.hyperledger.aries.webhook.AriesWebSocketListener;
 import org.hyperledger.aries.webhook.IEventHandler;
 import org.hyperledger.aries.webhook.TenantAwareEventHandler;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import io.nessus.aries.common.WebSocketListener;
 import io.nessus.aries.test.AbstractAriesTest;
 import okhttp3.Request;
 import okhttp3.WebSocket;
@@ -40,7 +40,7 @@ public class UnauthorizedWebSocketTest extends AbstractAriesTest {
                 .url("ws://localhost:8031/ws")
                 //.header("X-API-Key", ACAPY_API_KEY)
                 //.header("Authorization", "Bearer " + token)
-                .build(), new WebSocketListener(null, handler));
+                .build(), new AriesWebSocketListener(null, handler));
         
         try {
             

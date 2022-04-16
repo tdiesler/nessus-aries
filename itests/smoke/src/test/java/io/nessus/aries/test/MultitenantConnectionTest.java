@@ -3,8 +3,6 @@ package io.nessus.aries.test;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
-import java.io.IOException;
-import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -13,15 +11,15 @@ import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionState;
+import org.hyperledger.aries.api.connection.CreateInvitationParams;
 import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.hyperledger.aries.api.connection.CreateInvitationResponse;
 import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
-import org.hyperledger.aries.api.settings.Settings;
-import org.hyperledger.aries.webhook.TenantAwareEventHandler;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.common.WebSocketEventHandler;
 import okhttp3.WebSocket;
 
 /**
@@ -35,75 +33,68 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
     void testMultitenantWallets() throws Exception {
         
         // Create multitenant wallets
-        WalletRecord faberWallet = createWallet("Faber", ENDORSER);
-        WalletRecord aliceWallet = createWallet("Alice");
-
-        AriesClient alice = useWallet(aliceWallet);
-        AriesClient faber = useWallet(faberWallet);
+        WalletRecord acmeWallet = new WalletBuilder("Acme")
+                .ledgerRole(ENDORSER).selfRegisterNym().build();
         
-        // Count transitions to ACTIVE state
+        WalletRecord faberWallet = new WalletBuilder("Faber")
+                .ledgerRole(ENDORSER).selfRegisterNym().build();
+        
+        // Alice does not have a public DID
+        WalletRecord aliceWallet = new WalletBuilder("Alice").build();
+        
         CountDownLatch activeLatch = new CountDownLatch(2);
-        
-        WebSocket aliceWebSocket = createWebSocket(aliceWallet, new TenantAwareEventHandler() {
+        class MyWebSocketEventHandler extends WebSocketEventHandler {
+            
+            MyWebSocketEventHandler(WalletRecord myWallet) {
+                super(myWallet);
+            }
+            
             @Override
-            public void handleConnection(String walletId, ConnectionRecord con) {
-                String sourceWallet = findWalletNameById(walletId);
-                String myWalletName = aliceWallet.getSettings().getWalletName();
-                String myWalletId = aliceWallet.getWalletId();
-                ConnectionState state = con.getState();
-                log.info("{} Connection: [@{}] [{}] {}", myWalletName, sourceWallet, state, con);
-                
-                if (myWalletId.equals(walletId) && ConnectionState.ACTIVE == state) {
+            public void handleConnection(String walletId, ConnectionRecord con) throws Exception {
+                super.handleConnection(walletId, con);
+                if (ConnectionState.ACTIVE == con.getState() && myWalletId.equals(walletId)) {
                     log.info("{} CONNECTION ACTIVE", myWalletName);
                     activeLatch.countDown();
                 }
             }
+        }
+        
+        WebSocket acmeWebSocket = createWebSocket(acmeWallet, new WebSocketEventHandler(acmeWallet) {
         });
         
-        WebSocket faberWebSocket = createWebSocket(faberWallet, new TenantAwareEventHandler() {
-            
-            String serviceEndpoint;
-            
-            @Override
-            public void handleSettings(String walletId, Settings settings) {
-                String myWalletName = faberWallet.getSettings().getWalletName();
-                log.info("{} Settings: [{}] {}", myWalletName, walletId, settings);
-                this.serviceEndpoint = settings.getEndpoint();
-            }
-            
-            @Override
-            public void handleConnection(String walletId, ConnectionRecord con) throws IOException {
-                String sourceWallet = findWalletNameById(walletId);
-                String myWalletName = faberWallet.getSettings().getWalletName();
-                String myWalletId = faberWallet.getWalletId();
-                ConnectionState state = con.getState();
-                log.info("{} Connection: [@{}] [{}] {}", myWalletName, sourceWallet, state, con);
-                
-                // Faber receives the connection invitation from Alice
-                if (!myWalletId.equals(walletId) && ConnectionState.INVITATION == con.getState()) {
-                    log.info("{} RECEIVE INVITATION", myWalletName);
-                    faber.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
-                      .recipientKeys(Collections.singletonList(con.getInvitationKey()))
-                      .serviceEndpoint(serviceEndpoint)
-                      .build(), ConnectionReceiveInvitationFilter.builder()
-                          .autoAccept(true)
-                          .build()).get();            
-                }
-                if (myWalletId.equals(walletId) && ConnectionState.ACTIVE == con.getState()) {
-                    log.info("{} CONNECTION ACTIVE", myWalletName);
-                    activeLatch.countDown();
-                }
-            }
+        WebSocket faberWebSocket = createWebSocket(faberWallet, new MyWebSocketEventHandler(faberWallet) {
+        });
+        
+        WebSocket aliceWebSocket = createWebSocket(aliceWallet, new MyWebSocketEventHandler(aliceWallet) {
         });
         
         try {
             
-            // Alice creates a connection invitation for Faber
-            CreateInvitationResponse aliceInvitationResponse = alice.connectionsCreateInvitation(CreateInvitationRequest.builder().build()).get();
-            ConnectionInvitation aliceInvitation = aliceInvitationResponse.getInvitation();
-            log.info("Alice: {}", aliceInvitationResponse);
-            log.info("Alice: {}", aliceInvitation);
+            AriesClient alice = createClient(aliceWallet);
+            AriesClient faber = createClient(faberWallet);
+            
+            log.info("===================================================================================");
+            
+            // Faber creates an invitation (/connections/create-invitation)
+            CreateInvitationResponse createInvitationResponse = faber.connectionsCreateInvitation(
+                    CreateInvitationRequest.builder()
+                        .myLabel("Faber/Alice")
+                        .build(), 
+                    CreateInvitationParams.builder()
+                        .autoAccept(true)
+                        .build()).get();
+            ConnectionInvitation invitation = createInvitationResponse.getInvitation();
+            log.info("Faber: {}", createInvitationResponse);
+            log.info("Faber: {}", invitation);
 
+            // Alice receives the invitation from Faber (/connections/receive-invitation)
+            alice.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+                    .recipientKeys(invitation.getRecipientKeys())
+                    .serviceEndpoint(invitation.getServiceEndpoint())
+                    .build(), ConnectionReceiveInvitationFilter.builder()
+                        .autoAccept(true)
+                        .build()).get();
+            
             // Await ACTIVE state for both Alice and Faber
             // Requires --auto-ping-connection otherwise Faber gets stuck in state RESPONSE
             Assertions.assertTrue(activeLatch.await(10, TimeUnit.SECONDS), "No ACTIVE connection");
@@ -111,8 +102,11 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
         } finally {
             closeWebSocket(aliceWebSocket);
             closeWebSocket(faberWebSocket);
+            closeWebSocket(acmeWebSocket);
             removeWallet(aliceWallet);
             removeWallet(faberWallet);
+            removeWallet(acmeWallet);
         }
     }
+
 }

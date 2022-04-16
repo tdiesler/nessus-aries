@@ -17,13 +17,15 @@ public class OnboardFaberTest extends AbstractAriesTest {
     void testOutOfBand() throws Exception {
 
         // Create initial TRUSTEE Wallet
-        WalletRecord govrnWallet = createWallet("Government", TRUSTEE);
-        
+        WalletRecord govrnWallet = new WalletBuilder("Government")
+                .ledgerRole(TRUSTEE).selfRegisterNym().build();
+
         // Onboard an ENDORSER wallet
-        WalletRecord faberWallet = createWallet(govrnWallet, "Faber", ENDORSER);
+        WalletRecord faberWallet = new WalletBuilder("Faber")
+                .registerNym(govrnWallet).ledgerRole(ENDORSER).build();
         
         try {
-            AriesClient faber = useWallet(faberWallet);
+            AriesClient faber = createClient(faberWallet);
 
             DID did = faber.walletDidPublic().get();
             log.info("Faber: Public {}", did);

@@ -10,9 +10,11 @@ import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionState;
 import org.hyperledger.aries.api.did_exchange.DidExchangeCreateRequestFilter;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
-import org.hyperledger.aries.webhook.TenantAwareEventHandler;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.common.Configuration;
+import io.nessus.aries.common.WalletRegistry;
+import io.nessus.aries.common.WebSocketEventHandler;
 import okhttp3.WebSocket;
 
 /**
@@ -26,24 +28,27 @@ public class DidExchangeTest extends AbstractAriesTest {
     void testDidExchange() throws Exception {
 
         // Create multitenant wallets
-        WalletRecord govrnWallet = createWallet("Government", TRUSTEE);
-        WalletRecord faberWallet = createWallet(govrnWallet, "Faber", ENDORSER);
+        WalletRecord govrnWallet = new WalletBuilder("Government")
+                .ledgerRole(TRUSTEE).selfRegisterNym().build();
+
+        WalletRecord faberWallet = new WalletBuilder("Faber")
+                .registerNym(govrnWallet).ledgerRole(ENDORSER).build();
         
-        AriesClient faber = useWallet(faberWallet);
-        AriesClient govern = useWallet(govrnWallet);
+        AriesClient faber = createClient(faberWallet);
+        AriesClient govern = createClient(govrnWallet);
         
-        WebSocket governWebSocket = createWebSocket(govrnWallet, new TenantAwareEventHandler() {
+        WebSocket governWebSocket = createWebSocket(govrnWallet, new WebSocketEventHandler() {
             
             @Override
             public void handleRaw(String walletId, String topic, String payload) {
-                String sourceWallet = findWalletNameById(walletId);
+                String sourceWallet = WalletRegistry.getWalletName(walletId);
                 String myWalletName = govrnWallet.getSettings().getWalletName();
                 log.info("{} Event {}: [@{}] {}", myWalletName, topic, sourceWallet, payload);
             }
 
             @Override
             public void handleConnection(String walletId, ConnectionRecord con) {
-                String sourceWallet = findWalletNameById(walletId);
+                String sourceWallet = WalletRegistry.getWalletName(walletId);
                 String myWalletName = govrnWallet.getSettings().getWalletName();
                 String myWalletId = govrnWallet.getWalletId();
                 ConnectionState state = con.getState();
@@ -55,17 +60,17 @@ public class DidExchangeTest extends AbstractAriesTest {
             }
         });
         
-        WebSocket faberWebSocket = createWebSocket(faberWallet, new TenantAwareEventHandler() {
+        WebSocket faberWebSocket = createWebSocket(faberWallet, new WebSocketEventHandler() {
             @Override
             public void handleRaw(String walletId, String topic, String payload) {
-                String sourceWallet = findWalletNameById(walletId);
+                String sourceWallet = WalletRegistry.getWalletName(walletId);
                 String myWalletName = faberWallet.getSettings().getWalletName();
                 log.info("{} Event {}: [@{}] {}", myWalletName, topic, sourceWallet, payload);
             }
 
             @Override
             public void handleConnection(String walletId, ConnectionRecord con) {
-                String sourceWallet = findWalletById(walletId).getSettings().getWalletName();
+                String sourceWallet = WalletRegistry.getWallet(walletId).getSettings().getWalletName();
                 String myWalletName = faberWallet.getSettings().getWalletName();
                 String myWalletId = faberWallet.getWalletId();
                 ConnectionState state = con.getState();
@@ -82,7 +87,7 @@ public class DidExchangeTest extends AbstractAriesTest {
             
             ConnectionRecord connectionRecord = faber.didExchangeCreateRequest(DidExchangeCreateRequestFilter.builder()
                     .theirPublicDid(governPublicDid.getDid())
-                    .myEndpoint(ACAPY_USER_URL)
+                    .myEndpoint(Configuration.ACAPY_USER_URL)
                     .myLabel("Faber/Government")
                     .build()).get();
             log.info("Faber: {}", connectionRecord);

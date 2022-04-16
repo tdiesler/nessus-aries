@@ -5,19 +5,12 @@ import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Map;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.aries.AriesClient;
-import org.hyperledger.aries.api.connection.ConnectionRecord;
-import org.hyperledger.aries.api.connection.ConnectionStaticRequest;
-import org.hyperledger.aries.api.connection.ConnectionStaticResult;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
-import org.hyperledger.aries.api.credentials.CredentialAttributes;
-import org.hyperledger.aries.api.credentials.CredentialPreview;
 import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange;
-import org.hyperledger.aries.api.issue_credential_v1.V1CredentialProposalRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.api.revocation.RevRegCreateRequest;
 import org.hyperledger.aries.api.revocation.RevRegCreateResponse;
@@ -64,11 +57,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         String jobCertificateSchemaId;
     }
 
-    @Test
-    public void testWorkflow() throws Exception {
-
-        Context ctx = new Context();
-
+    void doWorkflow(Context ctx) throws Exception {
+        
         /*
          * Setup Indy Pool Nodes
          * 
@@ -128,7 +118,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         onboardFaberCollege(ctx);
         onboardAcmeCorp(ctx);
-//        onboardThriftBank(ctx);
+//            onboardThriftBank(ctx);
         onboardAlice(ctx);
 
         /*
@@ -147,7 +137,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          */
 
         createTranscriptSchema(ctx);
-//		createJobCertificateSchema(ctx);
+//          createJobCertificateSchema(ctx);
 
         /*
          * Creating Credential Definitions
@@ -168,7 +158,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          */
 
         createTranscriptCredentialDefinition(ctx);
-//		createJobCertificateCredentialDefinition(ctx);
+//          createJobCertificateCredentialDefinition(ctx);
 
         /*
          * Alice gets her Transcript from Faber College
@@ -189,12 +179,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * should not impress anyone.
          */
 
-        try {
-            getTranscriptFromFaber(ctx);
-        } catch (Exception ex) {
-            closeAndDeleteWallets(ctx);
-            throw ex;
-        }
+        getTranscriptFromFaber(ctx);
 
         /*
          * Alice applies for a job at Acme
@@ -215,7 +200,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * the condition about the average mark or grades.
          */
 
-//		applyForJobWithAcme(ctx);
+//          applyForJobWithAcme(ctx);
 
         /*
          * Alice applies for a loan with Thrift Bank
@@ -225,7 +210,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * offered by Acme.
          */
 
-//		applyForLoanWithThrift(ctx);
+//          applyForLoanWithThrift(ctx);
 
         /*
          * Thrift accepts the loan application and now requires KYC
@@ -234,25 +219,32 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * personal information with the bank.
          */
 
-//		kycProcessWithThrift(ctx);
+//          kycProcessWithThrift(ctx);
 
         /*
          * Alice decides to quit her job with Acme
          */
 
-//		quitJobWithAcme(ctx);
+//          quitJobWithAcme(ctx);
+    }
 
-        // Close and Delete the Wallets
-
-        closeAndDeleteWallets(ctx);
+    @Test
+    public void testWorkflow() throws Exception {
+        Context ctx = new Context();
+        try {
+            doWorkflow(ctx);
+        } finally {
+            closeAndDeleteWallets(ctx);
+        }
     }
 
     private void onboardGovernment(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet("Government", TRUSTEE);
+        WalletRecord wallet = new WalletBuilder("Government")
+                .ledgerRole(TRUSTEE).selfRegisterNym().build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(wallet);
+        AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
         ctx.governmentWallet = wallet;
@@ -261,10 +253,11 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     private void onboardFaberCollege(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet(ctx.governmentWallet, "Faber", ENDORSER);
+        WalletRecord wallet = new WalletBuilder("Faber")
+                .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(wallet);
+        AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
         ctx.faberWallet = wallet;
@@ -273,10 +266,11 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     private void onboardAcmeCorp(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet(ctx.governmentWallet, "Acme", ENDORSER);
+        WalletRecord wallet = new WalletBuilder("Acme")
+                .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(wallet);
+        AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
         ctx.acmeWallet = wallet;
@@ -285,10 +279,11 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     private void onboardThriftBank(Context ctx) throws IOException {
 
-        WalletRecord wallet = createWallet(ctx.governmentWallet, "Thrift", ENDORSER);
+        WalletRecord wallet = new WalletBuilder("Thrift")
+                .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(wallet);
+        AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
         ctx.thriftWallet = wallet;
@@ -300,11 +295,11 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         WalletRecord wallet = new WalletBuilder("Alice").build();
 
         // Create client for sub wallet
-        AriesClient client = useWallet(wallet);
-        DID publicDid = client.walletDidPublic().get();
+//        AriesClient client = createClient(wallet);
+//        DID publicDid = client.walletDidPublic().get();
 
         ctx.aliceWallet = wallet;
-        ctx.aliceDid = publicDid;
+        //ctx.aliceDid = publicDid;
     }
 
     private void createTranscriptSchema(Context ctx) throws IOException {
@@ -313,7 +308,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient government = useWallet(ctx.governmentWallet);
+        AriesClient government = createClient(ctx.governmentWallet);
 
         SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
                 .schemaVersion("1.2")
@@ -330,7 +325,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient government = useWallet(ctx.governmentWallet);
+        AriesClient government = createClient(ctx.governmentWallet);
 
         SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
                 .schemaVersion("0.2")
@@ -346,7 +341,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // 1. Faber get the Transcript Credential Schema
 
         // Create client for sub wallet
-        AriesClient faber = useWallet(ctx.faberWallet);
+        AriesClient faber = createClient(ctx.faberWallet);
 
         Schema schema = faber.schemasGetById(ctx.transcriptSchemaId).get();
         log.info("{}", schema);
@@ -367,7 +362,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // 1. Acme get the Transcript Credential Schema
 
         // Create client for sub wallet
-        AriesClient acme = useWallet(ctx.acmeWallet);
+        AriesClient acme = createClient(ctx.acmeWallet);
 
         Schema schema = acme.schemasGetById(ctx.jobCertificateSchemaId).get();
         log.info("{}", schema);
@@ -427,32 +422,24 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          */
 
         // Create client for sub wallet
-        AriesClient faber = useWallet(ctx.faberWallet);
+        AriesClient faber = createClient(ctx.faberWallet);
 
-        ConnectionStaticResult connectionResult = faber.connectionsCreateStatic(ConnectionStaticRequest.builder()
-                .theirDid(ctx.aliceDid.getDid())
-                .theirVerkey(ctx.aliceDid.getVerkey())
-                .build()).get();
-        ConnectionRecord record = connectionResult.getRecord();
-        log.info("{} {}", record.getState(), connectionResult);
-        ctx.faberAliceConnectionId = record.getConnectionId();
-
-        V1CredentialExchange credentialExchange = faber.issueCredentialSend(V1CredentialProposalRequest.builder()
-                .connectionId(ctx.faberAliceConnectionId)
-                .credentialDefinitionId(ctx.faberTranscriptCredDefId)
-                .credentialProposal(new CredentialPreview(CredentialAttributes.from(Map.of(
-                        "first_name", "Alice", 
-                        "last_name", "Garcia", 
-                        "degree", "Bachelor of Science, Marketing", 
-                        "status", "graduated", 
-                        "ssn", "123-45-6789", 
-                        "year", "2015", 
-                        "average", "5"))))
-                .build()).get();
-        log.info("{}", credentialExchange);
+//        V1CredentialExchange credentialExchange = faber.issueCredentialSend(V1CredentialProposalRequest.builder()
+//                .connectionId(ctx.faberAliceConnectionId)
+//                .credentialDefinitionId(ctx.faberTranscriptCredDefId)
+//                .credentialProposal(new CredentialPreview(CredentialAttributes.from(Map.of(
+//                        "first_name", "Alice", 
+//                        "last_name", "Garcia", 
+//                        "degree", "Bachelor of Science, Marketing", 
+//                        "status", "graduated", 
+//                        "ssn", "123-45-6789", 
+//                        "year", "2015", 
+//                        "average", "5"))))
+//                .build()).get();
+//        log.info("{}", credentialExchange);
 
         // Create client for sub wallet
-        AriesClient alice = useWallet(ctx.aliceWallet);
+        AriesClient alice = createClient(ctx.aliceWallet);
 
         for (V1CredentialExchange credex : alice.issueCredentialRecords(null).get()) {
             log.info("{}", credex);

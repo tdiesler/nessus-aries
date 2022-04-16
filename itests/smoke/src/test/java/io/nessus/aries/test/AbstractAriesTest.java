@@ -1,11 +1,7 @@
 package io.nessus.aries.test;
 
-import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
-
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.hyperledger.acy_py.generated.model.DID;
@@ -23,29 +19,25 @@ import org.hyperledger.aries.api.multitenancy.WalletDispatchType;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.api.multitenancy.WalletType;
 import org.hyperledger.aries.config.GsonConfig;
-import org.hyperledger.aries.webhook.IEventHandler;
+import org.hyperledger.aries.webhook.AriesWebSocketListener;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 
+import io.nessus.aries.common.Configuration;
 import io.nessus.aries.common.SelfRegistrationHandler;
-import io.nessus.aries.common.WebSocketListener;
+import io.nessus.aries.common.WalletRegistry;
+import io.nessus.aries.common.WebSocketEventHandler;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.WebSocket;
 
 public abstract class AbstractAriesTest {
 
-    public static final String ACAPY_ADMIN_URL = "http://localhost:8031";
-    public static final String ACAPY_USER_URL = "http://localhost:8030";
-    public static final String ACAPY_API_KEY = "adminkey";
-
     public final Logger log = LoggerFactory.getLogger(getClass());
     
-    private final Map<String, WalletRecord> walletsCache = new HashMap<>();
-
     private static final OkHttpClient httpClient = new OkHttpClient.Builder()
         .writeTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -54,8 +46,8 @@ public abstract class AbstractAriesTest {
         .build();
 
     private static final AriesClient baseClient = AriesClient.builder()
-            .url(ACAPY_ADMIN_URL)
-            .apiKey(ACAPY_API_KEY)
+            .url(Configuration.ACAPY_ADMIN_URL)
+            .apiKey(Configuration.ACAPY_API_KEY)
             .client(httpClient)
             .build();
 
@@ -72,12 +64,8 @@ public abstract class AbstractAriesTest {
     /**
      * Create a client for a multitenant wallet
      */
-    public AriesClient useWallet(WalletRecord wallet) throws IOException {
-        return AriesClient.builder()
-                .url(ACAPY_ADMIN_URL)
-                .apiKey(ACAPY_API_KEY)
-                .bearerToken(wallet.getToken())
-                .build();
+    public AriesClient createClient(WalletRecord wallet) throws IOException {
+        return Configuration.createClient(wallet);
     }
 
     public boolean selfRegisterWithDid(String alias, String did, String vkey, IndyLedgerRoles role) throws IOException {
@@ -92,7 +80,7 @@ public abstract class AbstractAriesTest {
 
     public ConnectionRecord getConnectionRecord(WalletRecord wallet) throws IOException {
         String walletName = wallet.getSettings().getWalletName();
-        AriesClient client = useWallet(wallet);
+        AriesClient client = createClient(wallet);
         List<ConnectionRecord> records = client.connections().get();
         Assertions.assertEquals(1, records.size(), walletName + ": Unexpected number of connection records");
         return records.get(0);
@@ -108,32 +96,14 @@ public abstract class AbstractAriesTest {
         return rec;
     }
     
-    public ConnectionRecord awaitConnectionState(WalletRecord wallet, ConnectionState targetState) throws Exception {
-        String walletName = wallet.getSettings().getWalletName();
-        AriesClient client = useWallet(wallet);
-        for (int i = 0; i < 10; i++) {
-            List<ConnectionRecord> records = client.connections().get();
-            if (records.isEmpty()) log.info("{}: No connection records", walletName);
-            for (ConnectionRecord rec : records) {
-                String id = rec.getConnectionId();
-                ConnectionState state = rec.getState();
-                log.info("{}: cid={} state={} - {}", walletName, id, state, rec);
-                if (state == targetState) 
-                    return rec;
-            }
-            Thread.sleep(2000);
-        }
-        throw new RuntimeException(String.format("%s: %s connection state not reached", walletName, targetState));
-    }
-    
-    public WebSocket createWebSocket(WalletRecord wallet, IEventHandler handler) {
+    public WebSocket createWebSocket(WalletRecord wallet, WebSocketEventHandler handler) {
         String token = wallet.getToken();
         String walletName = wallet.getSettings().getWalletName();
         WebSocket webSocket = getHttpClient().newWebSocket(new Request.Builder()
                 .url("ws://localhost:8031/ws")
-                .header("X-API-Key", ACAPY_API_KEY)
+                .header("X-API-Key", Configuration.ACAPY_API_KEY)
                 .header("Authorization", "Bearer " + token)
-                .build(), new WebSocketListener(walletName, handler));
+                .build(), new AriesWebSocketListener(walletName, handler));
         return webSocket;
     }
     
@@ -141,47 +111,12 @@ public abstract class AbstractAriesTest {
         ws.close(1000, null);
     }
 
-    public WalletRecord createWallet(String walletName) throws IOException {
-        return createWallet(null, walletName, null);
-    }
-
-    public WalletRecord createWallet(String walletName, IndyLedgerRoles ledgerRole) throws IOException {
-        return createWallet(null, walletName, ledgerRole);
-    }
-
-    public WalletRecord createWallet(WalletRecord trustee, String walletName, IndyLedgerRoles ledgerRole) throws IOException {
-        WalletRecord walletRecord;
-        if (ledgerRole == TRUSTEE) {
-            walletRecord = new WalletBuilder(walletName)
-                .ledgerRole(ledgerRole)
-                .selfRegister()
-                .build();
-        } else if (ledgerRole != null) {
-            walletRecord = new WalletBuilder(walletName)
-                    .ledgerRole(ledgerRole)
-                    .trustee(trustee)
-                    .build();
-        } else {
-            walletRecord = new WalletBuilder(walletName).build();
-        }
-        return walletRecord;
-    }
-
-    public WalletRecord findWalletById(String walletId) {
-        return walletsCache.get(walletId);
-    }
-
-    public String findWalletNameById(String walletId) {
-        WalletRecord wallet = walletsCache.get(walletId);
-        return wallet != null ? wallet.getSettings().getWalletName() : null;
-    }
-
     public void removeWallet(WalletRecord wallet) throws IOException {
         if (wallet != null) {
             String walletId = wallet.getWalletId();
             String walletName = wallet.getSettings().getWalletName();
             log.info("{} Remove Wallet", walletName);
-            walletsCache.remove(walletId);
+            WalletRegistry.removeWallet(walletId);
             baseClient.multitenancyWalletRemove(walletId, RemoveWalletRequest.builder()
                     .walletKey(wallet.getToken())
                     .build());
@@ -218,12 +153,12 @@ public abstract class AbstractAriesTest {
             return this;
         }
         
-        public WalletBuilder selfRegister() {
+        public WalletBuilder selfRegisterNym() {
             this.selfRegister = true;
             return this;
         }
         
-        public WalletBuilder trustee(WalletRecord trusteeWallet) {
+        public WalletBuilder registerNym(WalletRecord trusteeWallet) {
             this.trusteeWallet = trusteeWallet;
             return this;
         }
@@ -245,12 +180,10 @@ public abstract class AbstractAriesTest {
             String accessToken = walletRecord.getToken();
             log.info("{} Token: {}", walletName, accessToken);
 
-            if (ledgerRole != null) {
-                
-                Assertions.assertTrue(selfRegister || trusteeWallet != null, "Allow self register or provide Trustee");
+            if (selfRegister || trusteeWallet != null) {
                 
                 DID did = null;
-                AriesClient client = useWallet(walletRecord);
+                AriesClient client = createClient(walletRecord);
                 
                 if (selfRegister) {
                     
@@ -267,7 +200,7 @@ public abstract class AbstractAriesTest {
                     did = client.walletDidCreate(DIDCreate.builder().build()).get();
                     log.info("{}: {}", walletName, did);
                     
-                    AriesClient trustee = useWallet(trusteeWallet);
+                    AriesClient trustee = createClient(trusteeWallet);
                     String trusteeName = trusteeWallet.getSettings().getWalletName();
                     RegisterLedgerNymResponse nymResponse = trustee.ledgerRegisterNym(RegisterNymFilter.builder()
                             .did(did.getDid())
@@ -284,7 +217,7 @@ public abstract class AbstractAriesTest {
                 log.info("{}: {}", walletName, didEndpoint);
             }
             
-            walletsCache.put(walletId, walletRecord);
+            WalletRegistry.putWallet(walletRecord);
             return walletRecord;
         }
     }
