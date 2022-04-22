@@ -385,12 +385,12 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * The use of those accumulators requires the publication of “validity tails” outside of the Ledger.
          */
 
-        RevRegCreateResponse createRegistryResponse = acme.revocationCreateRegistry(RevRegCreateRequest.builder()
-                .credentialDefinitionId(ctx.acmeJobCertificateCredDefId)
-                .build()).get();
-        log.info("{}", createRegistryResponse);
-
-        ctx.acmeJobCertificateRevocationRegistryId = createRegistryResponse.getRevocRegId();
+//        RevRegCreateResponse createRegistryResponse = acme.revocationCreateRegistry(RevRegCreateRequest.builder()
+//                .credentialDefinitionId(ctx.acmeJobCertificateCredDefId)
+//                .build()).get();
+//        log.info("{}", createRegistryResponse);
+//
+//        ctx.acmeJobCertificateRevocationRegistryId = createRegistryResponse.getRevocRegId();
 
         // 4. Acme creates a Revocation Registry for the given Credential Definition.
 
