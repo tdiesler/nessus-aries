@@ -91,6 +91,20 @@ public abstract class AbstractAriesTest {
             baseClient.multitenancyWalletRemove(walletId, RemoveWalletRequest.builder()
                     .walletKey(wallet.getToken())
                     .build());
+
+            // Wait for the wallet to get removed 
+            safeSleep(500); 
+            while (!baseClient.multitenancyWallets(walletName).get().isEmpty()) {
+                safeSleep(1000); 
+            }
+        }
+    }
+
+    public void safeSleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ex) {
+            // ignore
         }
     }
     
