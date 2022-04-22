@@ -14,13 +14,13 @@ public final class WebSockets {
 
     public static final OkHttpClient httpClient = HttpClient.createHttpClient();
 
-    public static WebSocket createWebSocket(WalletRecord wallet, WebSocketEventHandler handler) {
-        handler.myWallet = wallet;
-        String walletName = wallet.getSettings().getWalletName();
+    public static WebSocket createWebSocket(WalletRecord thisWallet, WebSocketEventHandler handler) {
+        handler.setThisWallet(thisWallet);
+        String walletName = thisWallet.getSettings().getWalletName();
         WebSocket webSocket = httpClient.newWebSocket(new Request.Builder()
                 .url("ws://localhost:8031/ws")
                 .header("X-API-Key", Configuration.ACAPY_API_KEY)
-                .header("Authorization", "Bearer " + wallet.getToken())
+                .header("Authorization", "Bearer " + thisWallet.getToken())
                 .build(), new AriesWebSocketListener(walletName, handler));
         return webSocket;
     }

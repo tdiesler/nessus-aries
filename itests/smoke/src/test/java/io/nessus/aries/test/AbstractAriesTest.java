@@ -1,6 +1,7 @@
 package io.nessus.aries.test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import org.hyperledger.acy_py.generated.model.DID;
@@ -44,6 +45,8 @@ public abstract class AbstractAriesTest {
 
     public static final Gson gson = GsonConfig.defaultConfig();
 
+    protected final WalletRegistry walletRegistry = new WalletRegistry();
+    
     /**
      * Create a client for a multitenant wallet
      */
@@ -84,13 +87,20 @@ public abstract class AbstractAriesTest {
             String walletId = wallet.getWalletId();
             String walletName = wallet.getSettings().getWalletName();
             log.info("{} Remove Wallet", walletName);
-            WalletRegistry.removeWallet(walletId);
+            walletRegistry.removeWallet(walletId);
             baseClient.multitenancyWalletRemove(walletId, RemoveWalletRequest.builder()
                     .walletKey(wallet.getToken())
                     .build());
         }
     }
     
+    public void logSection(String title) {
+        int len = 119 - title.length();
+        char[] tail = new char[len];
+        Arrays.fill(tail, '=');
+        log.info("{} {}", title, String.valueOf(tail));
+    }
+
     public class WalletBuilder {
         
         private final String walletName;
@@ -185,7 +195,7 @@ public abstract class AbstractAriesTest {
                 log.info("{}: {}", walletName, didEndpoint);
             }
             
-            WalletRegistry.putWallet(walletRecord);
+            walletRegistry.putWallet(walletRecord);
             return walletRecord;
         }
     }

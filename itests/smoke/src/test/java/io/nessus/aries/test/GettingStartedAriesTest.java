@@ -5,19 +5,42 @@ import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
+import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
+import org.hyperledger.aries.api.connection.ConnectionRecord;
+import org.hyperledger.aries.api.connection.ConnectionState;
+import org.hyperledger.aries.api.connection.CreateInvitationParams;
+import org.hyperledger.aries.api.connection.CreateInvitationRequest;
+import org.hyperledger.aries.api.connection.CreateInvitationResponse;
+import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
+import org.hyperledger.aries.api.credentials.CredentialAttributes;
+import org.hyperledger.aries.api.credentials.CredentialPreview;
+import org.hyperledger.aries.api.issue_credential_v1.CredentialExchangeState;
 import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange.CredentialProposalDict.CredentialProposal;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialIssueRequest;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialOfferRequest;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialStoreRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
-import org.hyperledger.aries.api.revocation.RevRegCreateRequest;
-import org.hyperledger.aries.api.revocation.RevRegCreateResponse;
 import org.hyperledger.aries.api.schema.SchemaSendRequest;
 import org.hyperledger.aries.api.schema.SchemaSendResponse;
 import org.hyperledger.aries.api.schema.SchemaSendResponse.Schema;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import io.nessus.aries.common.CredentialProposalHelper;
+import io.nessus.aries.common.V1CredentialExchangeHelper;
+import io.nessus.aries.common.WebSocketEventHandler;
+import io.nessus.aries.common.WebSockets;
+import okhttp3.WebSocket;
 
 /**
  * The Ledger is externally provided by a running instance of the VON-Network
@@ -36,25 +59,70 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         DID governmentDid;
         WalletRecord governmentWallet;
+        WebSocket governmentWebSocket;
 
         DID faberDid;
         WalletRecord faberWallet;
         String faberTranscriptCredDefId;
+        WebSocket faberWebSocket;
+        ConnectionRecord faberAliceConnection;
 
         DID acmeDid;
         WalletRecord acmeWallet;
         String acmeJobCertificateCredDefId;
         String acmeJobCertificateRevocationRegistryId;
+        WebSocket acmeWebSocket;
 
         DID thriftDid;
         WalletRecord thriftWallet;
+        WebSocket thriftWebSocket;
 
-        DID aliceDid;
         WalletRecord aliceWallet;
-        String faberAliceConnectionId;
-
+        WebSocket aliceWebSocket;
+        ConnectionRecord aliceFaberConnection;
+        
         String transcriptSchemaId;
         String jobCertificateSchemaId;
+
+        CountDownLatch aliceFaberConnectionLatch = new CountDownLatch(2);
+    }
+    
+    class GettingStartedEventHandler extends WebSocketEventHandler {
+        
+        final Context ctx;
+        
+        GettingStartedEventHandler(Context ctx) {
+            this.ctx = ctx;
+        }
+
+        @Override
+        public synchronized void handleConnection(String walletId, ConnectionRecord con) throws Exception {
+            super.handleConnection(walletId, con);
+            if ("Alice".equals(getTheirWalletName(walletId)) && "Faber".equals(thisWalletName())) {
+                ctx.aliceFaberConnection = con;
+                if (ConnectionState.ACTIVE == con.getState()) {
+                    log.info("{} CONNECTION ACTIVE", thisWalletName());
+                    ctx.aliceFaberConnectionLatch.countDown();
+                }
+            }
+            if ("Faber".equals(getTheirWalletName(walletId)) && "Alice".equals(thisWalletName())) {
+                ctx.faberAliceConnection = con;
+                if (ConnectionState.ACTIVE == con.getState()) {
+                    log.info("{} CONNECTION ACTIVE", thisWalletName());
+                    ctx.aliceFaberConnectionLatch.countDown();
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testWorkflow() throws Exception {
+        Context ctx = new Context();
+        try {
+            doWorkflow(ctx);
+        } finally {
+            closeAndDeleteWallets(ctx);
+        }
     }
 
     void doWorkflow(Context ctx) throws Exception {
@@ -118,7 +186,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         onboardFaberCollege(ctx);
         onboardAcmeCorp(ctx);
-//            onboardThriftBank(ctx);
+        //onboardThriftBank(ctx);
         onboardAlice(ctx);
 
         /*
@@ -137,7 +205,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          */
 
         createTranscriptSchema(ctx);
-//          createJobCertificateSchema(ctx);
+        //createJobCertificateSchema(ctx);
 
         /*
          * Creating Credential Definitions
@@ -158,7 +226,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          */
 
         createTranscriptCredentialDefinition(ctx);
-//          createJobCertificateCredentialDefinition(ctx);
+        //createJobCertificateCredentialDefinition(ctx);
 
         /*
          * Alice gets her Transcript from Faber College
@@ -228,18 +296,10 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 //          quitJobWithAcme(ctx);
     }
 
-    @Test
-    public void testWorkflow() throws Exception {
-        Context ctx = new Context();
-        try {
-            doWorkflow(ctx);
-        } finally {
-            closeAndDeleteWallets(ctx);
-        }
-    }
-
     private void onboardGovernment(Context ctx) throws IOException {
 
+        logSection("Onboard Government");
+        
         WalletRecord wallet = new WalletBuilder("Government")
                 .ledgerRole(TRUSTEE).selfRegisterNym().build();
 
@@ -249,10 +309,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.governmentWallet = wallet;
         ctx.governmentDid = publicDid;
+        ctx.governmentWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
     }
 
     private void onboardFaberCollege(Context ctx) throws IOException {
 
+        logSection("Onboard Faber");
+        
         WalletRecord wallet = new WalletBuilder("Faber")
                 .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
 
@@ -262,10 +325,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.faberWallet = wallet;
         ctx.faberDid = publicDid;
+        ctx.faberWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
     }
 
     private void onboardAcmeCorp(Context ctx) throws IOException {
 
+        logSection("Onboard Acme");
+        
         WalletRecord wallet = new WalletBuilder("Acme")
                 .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
 
@@ -275,10 +341,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.acmeWallet = wallet;
         ctx.acmeDid = publicDid;
+        ctx.acmeWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
     }
 
     private void onboardThriftBank(Context ctx) throws IOException {
 
+        logSection("Onboard Thrift");
+        
         WalletRecord wallet = new WalletBuilder("Thrift")
                 .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
 
@@ -288,56 +357,88 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.thriftWallet = wallet;
         ctx.thriftDid = publicDid;
+        ctx.thriftWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
     }
 
     private void onboardAlice(Context ctx) throws IOException {
 
+        logSection("Onboard Alice");
+        
         WalletRecord wallet = new WalletBuilder("Alice").build();
-
-        // Create client for sub wallet
-//        AriesClient client = createClient(wallet);
-//        DID publicDid = client.walletDidPublic().get();
-
         ctx.aliceWallet = wallet;
-        //ctx.aliceDid = publicDid;
+        ctx.aliceWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
+    }
+
+    private void connectAliceToFaber(Context ctx) throws Exception {
+        
+        logSection("Connect Alice to Faber");
+        
+        AriesClient faber = createClient(ctx.faberWallet);
+        AriesClient alice = createClient(ctx.aliceWallet);
+        
+        // Inviter creates an invitation (/connections/create-invitation)
+        CreateInvitationResponse response = faber.connectionsCreateInvitation(
+                CreateInvitationRequest.builder().build(), 
+                CreateInvitationParams.builder()
+                    .autoAccept(true)
+                    .build()).get();
+        ConnectionInvitation invitation = response.getInvitation();
+        
+        // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
+        alice.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+                .recipientKeys(invitation.getRecipientKeys())
+                .serviceEndpoint(invitation.getServiceEndpoint())
+                .build(), ConnectionReceiveInvitationFilter.builder()
+                    .autoAccept(true)
+                    .build()).get();
+
+        Assertions.assertTrue(ctx.aliceFaberConnectionLatch.await(10, TimeUnit.SECONDS));
     }
 
     private void createTranscriptSchema(Context ctx) throws IOException {
 
+        logSection("Create Transcript Schema");
+        
         // Government creates the Transcript Credential Schema and sends it to the Ledger
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient government = createClient(ctx.governmentWallet);
+        AriesClient client = createClient(ctx.governmentWallet);
 
-        SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
+        SchemaSendResponse schemaResponse = client.schemas(SchemaSendRequest.builder()
                 .schemaVersion("1.2")
                 .schemaName("Transcript")
                 .attributes(Arrays.asList("first_name", "last_name", "degree", "status", "year", "average", "ssn"))
                 .build()).get();
+        log.info("{}", schemaResponse);
 
         ctx.transcriptSchemaId = schemaResponse.getSchemaId();
     }
 
     void createJobCertificateSchema(Context ctx) throws Exception {
 
+        logSection("Create Job Certificate Schema");
+        
         // Government creates the Job-Certificate Credential Schema and sends it to the Ledger
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient government = createClient(ctx.governmentWallet);
+        AriesClient client = createClient(ctx.governmentWallet);
 
-        SchemaSendResponse schemaResponse = government.schemas(SchemaSendRequest.builder()
+        SchemaSendResponse schemaResponse = client.schemas(SchemaSendRequest.builder()
                 .schemaVersion("0.2")
                 .schemaName("Job-Certificate")
                 .attributes(Arrays.asList("first_name", "last_name", "salary", "employee_status", "experience"))
                 .build()).get();
+        log.info("{}", schemaResponse);
 
         ctx.jobCertificateSchemaId = schemaResponse.getSchemaId();
     }
 
     void createTranscriptCredentialDefinition(Context ctx) throws Exception {
 
+        logSection("Create Transcript CredDef");
+        
         // 1. Faber get the Transcript Credential Schema
 
         // Create client for sub wallet
@@ -359,6 +460,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     void createJobCertificateCredentialDefinition(Context ctx) throws Exception {
 
+        logSection("Create Job Certificate CredDef");
+        
         // 1. Acme get the Transcript Credential Schema
 
         // Create client for sub wallet
@@ -416,106 +519,96 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     void getTranscriptFromFaber(Context ctx) throws Exception {
 
-        /* 1. Faber creates a Credential Offer for Alice
-         *
+        connectAliceToFaber(ctx);
+
+        logSection("Alice gets Transcript from Faber");
+        
+        AriesClient faber = createClient(ctx.faberWallet);
+        V1CredentialExchangeHelper faberCredentialHelper = new V1CredentialExchangeHelper(ctx.faberWallet);
+        
+        AriesClient alice = createClient(ctx.aliceWallet);
+        V1CredentialExchangeHelper aliceCredentialHelper = new V1CredentialExchangeHelper(ctx.aliceWallet);
+        
+        /* 1. Faber sends the Transcript Credential Offer
+         * 
          * The value of this Transcript Credential is that it is provably issued by Faber College
          */
-
-        // Create client for sub wallet
-        AriesClient faber = createClient(ctx.faberWallet);
-
-//        V1CredentialExchange credentialExchange = faber.issueCredentialSend(V1CredentialProposalRequest.builder()
-//                .connectionId(ctx.faberAliceConnectionId)
-//                .credentialDefinitionId(ctx.faberTranscriptCredDefId)
-//                .credentialProposal(new CredentialPreview(CredentialAttributes.from(Map.of(
-//                        "first_name", "Alice", 
-//                        "last_name", "Garcia", 
-//                        "degree", "Bachelor of Science, Marketing", 
-//                        "status", "graduated", 
-//                        "ssn", "123-45-6789", 
-//                        "year", "2015", 
-//                        "average", "5"))))
-//                .build()).get();
-//        log.info("{}", credentialExchange);
-
-        // Create client for sub wallet
-        AriesClient alice = createClient(ctx.aliceWallet);
-
-        for (V1CredentialExchange credex : alice.issueCredentialRecords(null).get()) {
-            log.info("{}", credex);
-        }
-
-        /*
-         * 2. Alice gets Credential Definition from Ledger
+        
+        V1CredentialExchange credex = faber.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
+                .connectionId(ctx.faberAliceConnection.getConnectionId())
+                .credentialDefinitionId(ctx.faberTranscriptCredDefId)
+                .credentialPreview(new CredentialPreview(CredentialAttributes.from(Map.of(
+                        "first_name", "Alice", 
+                        "last_name", "Garcia", 
+                        "degree", "Bachelor of Science, Marketing", 
+                        "status", "graduated", 
+                        "ssn", "123-45-6789", 
+                        "year", "2015", 
+                        "average", "5"))))
+                .build()).get();
+        log.info("Faber: {} {} {}", credex.getRole(), credex.getState(), credex);
+        
+        /* 2. Alice inspects the the Transcript Credential Offer
          * 
-         * Alice wants to see the attributes that the Transcript Credential contains.
-         * These attributes are known because a Credential Schema for Transcript has
-         * been written to the Ledger.
+         */
+        
+        credex = aliceCredentialHelper.awaitV1CredentialExchange(
+                ctx.aliceFaberConnection.getConnectionId(), ctx.faberTranscriptCredDefId, 
+                CredentialExchangeState.OFFER_RECEIVED, 10, TimeUnit.SECONDS).get();
+        
+        CredentialProposal credentialProposal = credex.getCredentialProposalDict().getCredentialProposal();
+        log.info("{}", credentialProposal);
+        
+        CredentialProposalHelper credentialHelper = new CredentialProposalHelper(credentialProposal);
+        Assertions.assertEquals("Alice", credentialHelper.getAttributeValue("first_name"));
+        Assertions.assertEquals("Garcia", credentialHelper.getAttributeValue("last_name"));
+        Assertions.assertEquals("graduated", credentialHelper.getAttributeValue("status"));
+        Assertions.assertEquals("5", credentialHelper.getAttributeValue("average"));
+        
+        /* 3. Alice sends the Transcript Credential Request
+         * 
+         */
+        
+        credex = alice.issueCredentialRecordsSendRequest(credex.getCredentialExchangeId()).get();
+        log.info("Alice: {} {} {}", credex.getRole(), credex.getState(), credex);
+        
+        /* 4. Faber receives the Transcript Credential Request
+         * 
          */
 
-//		String getSchemaRequest = Ledger.buildGetSchemaRequest(ctx.faberDidForAlice, ctx.transcriptSchemaId).get();
-//		String getSchemaResponse = Ledger.submitRequest(ctx.pool, getSchemaRequest).get();
-//		ParseResponseResult parseSchemaResult = Ledger.parseGetSchemaResponse(getSchemaResponse).get();
-//		log.info("Transcript Schema" + parseSchemaResult.getObjectJson());
-
-        /*
-         * 3. Alice creates a Master Secret
+        credex = faberCredentialHelper.awaitV1CredentialExchange(
+                ctx.faberAliceConnection.getConnectionId(), ctx.faberTranscriptCredDefId, 
+                CredentialExchangeState.REQUEST_RECEIVED, 10, TimeUnit.SECONDS).get();
+        
+        /* 5. Faber issues the Transcript Credential
          * 
-         * A Master Secret is an item of Private Data used by a Prover to guarantee that
-         * a credential uniquely applies to them.
-         * 
-         * The Master Secret is an input that combines data from multiple Credentials to
-         * prove that the Credentials have a common subject (the Prover). A Master
-         * Secret should be known only to the Prover.
          */
 
-//		ctx.aliceMasterSecretId = Anoncreds.proverCreateMasterSecret(ctx.aliceWallet, null).get();
-
-        /*
-         * 4. Alice get the Credential Definition
+        credex = faber.issueCredentialRecordsIssue(credex.getCredentialExchangeId(), V1CredentialIssueRequest.builder().build()).get();
+        log.info("Faber: {} {} {}", credex.getRole(), credex.getState(), credex);
+        
+        /* 6. Alice receives the Transcript Credential
          * 
-         * Alice also needs to get the Credential Definition corresponding to the
-         * Credential Definition Id in the Transcript Credential Offer.
          */
 
-//		String credDefResponse = submitRequest(ctx, Ledger.buildGetCredDefRequest(ctx.aliceDid, transcriptCredDefId).get());
-//		ParseResponseResult parsedCredDefResponse = Ledger.parseGetCredDefResponse(credDefResponse).get();
-//		String transcriptCredDef = parsedCredDefResponse.getObjectJson();
-
-        // 5. Alice creates a Credential Request of the issuance of the Transcript
-        // Credential
-
-//		ProverCreateCredentialRequestResult credentialRequestResult = Anoncreds.proverCreateCredentialReq(ctx.aliceWallet, ctx.aliceDidForFaber, transcriptCredOffer, transcriptCredDef, ctx.aliceMasterSecretId).get();
-//		String credentialRequestMetadataJson = credentialRequestResult.getCredentialRequestMetadataJson();
-//		String credentialRequestJson = credentialRequestResult.getCredentialRequestJson();
-
-        /*
-         * 6. Faber creates the Transcript Credential for Alice
+        credex = aliceCredentialHelper.awaitV1CredentialExchange(
+                ctx.aliceFaberConnection.getConnectionId(), ctx.faberTranscriptCredDefId, 
+                CredentialExchangeState.CREDENTIAL_RECEIVED, 10, TimeUnit.SECONDS).get();
+        
+        /* 7. Alice stores the Transcript Credential
          * 
-         * Encoding is not standardized by Indy except that 32-bit integers are encoded
-         * as themselves.
          */
 
-//		String credValuesJson = new JSONObject()
-//			.put("first_name", new JSONObject().put("raw", "Alice").put("encoded", "1139481716457488690172217916278103335"))
-//			.put("last_name", new JSONObject().put("raw", "Garcia").put("encoded", "5321642780241790123587902456789123452"))
-//			.put("degree", new JSONObject().put("raw", "Bachelor of Science, Marketing").put("encoded", "12434523576212321"))
-//			.put("status", new JSONObject().put("raw", "graduated").put("encoded", "2213454313412354"))
-//			.put("ssn", new JSONObject().put("raw", "123-45-6789").put("encoded", "3124141231422543541"))
-//			.put("year", new JSONObject().put("raw", "2015").put("encoded", "2015"))
-//			.put("average", new JSONObject().put("raw", "5").put("encoded", "5")).toString();
-//		
-//		IssuerCreateCredentialResult issuerCredentialResult = Anoncreds.issuerCreateCredential(ctx.faberWallet, transcriptCredOffer, credentialRequestJson, credValuesJson, null, 0).get();
-//		String transcriptCredJson = issuerCredentialResult.getCredentialJson();
-//		log.info("IssuedCredential: " + transcriptCredJson);
-
-        // 7. Alice stores Transcript Credential from Faber in her Wallet
-
-//		String transcriptCredentialId = Anoncreds.proverStoreCredential(ctx.aliceWallet, null, credentialRequestMetadataJson, transcriptCredJson, transcriptCredDef, null).get();
-//		log.info("Transcript Credential Id: " + transcriptCredentialId);
+        credex = alice.issueCredentialRecordsStore(credex.getCredentialExchangeId(), V1CredentialStoreRequest.builder()
+                .credentialId(credex.getCredentialId())
+                .build()).get();
+        log.info("Alice: {} {} {}", credex.getRole(), credex.getState(), credex);
     }
 
     private void closeAndDeleteWallets(Context ctx) throws IOException {
+        
+        logSection("Remove Wallets");
+        
         removeWallet(ctx.governmentWallet);
         removeWallet(ctx.faberWallet);
         removeWallet(ctx.acmeWallet);
