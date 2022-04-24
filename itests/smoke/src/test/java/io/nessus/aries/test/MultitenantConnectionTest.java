@@ -3,26 +3,29 @@ package io.nessus.aries.test;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionState;
+import org.hyperledger.aries.api.connection.ConnectionTheirRole;
 import org.hyperledger.aries.api.connection.CreateInvitationParams;
 import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.hyperledger.aries.api.connection.CreateInvitationResponse;
 import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.api.settings.Settings;
+import org.hyperledger.aries.webhook.EventType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.common.SafeConsumer;
 import io.nessus.aries.common.websocket.WebSocketEventHandler;
 import io.nessus.aries.common.websocket.WebSocketEventHandler.WebSocketEvent;
 import io.nessus.aries.common.websocket.WebSockets;
@@ -50,6 +53,7 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
                 
         logSection("Connect Alice to Faber");
         
+        Settings[] settingsHolder = new Settings[1];
         Map<String, ConnectionRecord> connections = new HashMap<>();
         CountDownLatch peerConnectionLatch = new CountDownLatch(2);
         
@@ -58,22 +62,43 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
                 .walletRegistry(walletRegistry)
                 .build());
         
-        Consumer<WebSocketEvent> eventConsumer = ev -> {
-            ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
-            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), con.getTheirRole(), con.getState(), con);
-            connections.put(ev.getTheirWalletId(), con);
-            if (ConnectionState.ACTIVE == con.getState()) {
-                peerConnectionLatch.countDown();
+        SafeConsumer<WebSocketEvent> consumer = ev -> {
+
+            // Handle the Settings event
+            if (EventType.SETTINGS.valueEquals(ev.getTopic())) {
+                Settings settings = ev.getPayload(Settings.class);
+                log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), settings);
+                settingsHolder[0] = settings;
+            }
+            
+            // Handle Connection events
+            if (EventType.CONNECTIONS.valueEquals(ev.getTopic())) {
+                ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
+                log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), con.getTheirRole(), con.getState(), con);
+                connections.put(ev.getTheirWalletId(), con);
+                if (ConnectionTheirRole.INVITEE == con.getTheirRole() && ConnectionState.INVITATION == con.getState()) {
+                    
+                    // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
+                    ev.createClient().connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+                            .recipientKeys(Arrays.asList(con.getInvitationKey()))
+                            .serviceEndpoint(settingsHolder[0].getEndpoint())
+                            .build(), ConnectionReceiveInvitationFilter.builder()
+                                .autoAccept(true)
+                                .build()).get();
+                }
+                if (ConnectionState.ACTIVE == con.getState()) {
+                    peerConnectionLatch.countDown();
+                }
             }
         };
         
         WebSocket faberSocket = WebSockets.createWebSocket(faberWallet, new WebSocketEventHandler.Builder()
-                .subscribe(aliceWallet.getWalletId(), ConnectionRecord.class, eventConsumer)
+                .subscribe(aliceWallet.getWalletId(), ConnectionRecord.class, consumer)
                 .walletRegistry(walletRegistry)
                 .build());
         
         WebSocket aliceSocket = WebSockets.createWebSocket(aliceWallet, new WebSocketEventHandler.Builder()
-                .subscribe(faberWallet.getWalletId(), ConnectionRecord.class, eventConsumer)
+                .subscribe(Arrays.asList(null, faberWallet.getWalletId()), Arrays.asList(Settings.class, ConnectionRecord.class), consumer)
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -89,16 +114,9 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
                         .autoAccept(true)
                         .build()).get();
             ConnectionInvitation invitation = response.getInvitation();
+            log.info("{}", invitation);
             
-            // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
-            alice.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
-                    .recipientKeys(invitation.getRecipientKeys())
-                    .serviceEndpoint(invitation.getServiceEndpoint())
-                    .build(), ConnectionReceiveInvitationFilter.builder()
-                        .autoAccept(true)
-                        .build()).get();
-
-            Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
+            Assertions.assertTrue(peerConnectionLatch.await(100, TimeUnit.SECONDS), "NO ACTIVE connections");
             
             // Verify that Faber can access their connection
             String faberConnectionId = connections.get(faberWallet.getWalletId()).getConnectionId();

@@ -17,7 +17,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.acy_py.generated.model.DID;
@@ -50,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import io.nessus.aries.common.AttachmentKey;
 import io.nessus.aries.common.AttachmentSupport;
 import io.nessus.aries.common.CredentialProposalHelper;
+import io.nessus.aries.common.SafeConsumer;
 import io.nessus.aries.common.websocket.EventSubscriber;
 import io.nessus.aries.common.websocket.WebSocketEventHandler;
 import io.nessus.aries.common.websocket.WebSocketEventHandler.WebSocketEvent;
@@ -323,7 +323,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         DID publicDid = client.walletDidPublic().get();
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -344,7 +344,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         DID publicDid = client.walletDidPublic().get();
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -365,7 +365,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         DID publicDid = client.walletDidPublic().get();
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -386,7 +386,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         DID publicDid = client.walletDidPublic().get();
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -402,7 +402,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         WalletRecord wallet = new WalletBuilder(Alice).build();
         
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -538,7 +538,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         
         CountDownLatch peerConnectionLatch = new CountDownLatch(2);
         
-        Consumer<WebSocketEvent> eventConsumer = ev -> {
+        SafeConsumer<WebSocketEvent> eventConsumer = ev -> {
             String thisName = ev.getThisWalletName();
             String theirName = ev.getTheirWalletName();
             ConnectionRecord con = ev.getPayload(ConnectionRecord.class);

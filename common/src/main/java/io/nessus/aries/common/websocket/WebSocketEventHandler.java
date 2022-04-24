@@ -1,14 +1,15 @@
 package io.nessus.aries.common.websocket;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.SubmissionPublisher;
-import java.util.function.Consumer;
 
+import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.discover_features.DiscoverFeatureEvent;
 import org.hyperledger.aries.api.endorser.EndorseTransactionRecord;
@@ -31,6 +32,8 @@ import org.hyperledger.aries.webhook.IEventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.nessus.aries.common.Configuration;
+import io.nessus.aries.common.SafeConsumer;
 import io.nessus.aries.common.WalletRegistry;
 
 public class WebSocketEventHandler implements IEventHandler, Closeable {
@@ -79,9 +82,16 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
         webSocketEventPublisher.close();
     }
     
-    public <T> EventSubscriber<WebSocketEvent> subscribe(String walletId, Class<T> eventType, Consumer<WebSocketEvent> consumer) {
+    public <T> EventSubscriber<WebSocketEvent> subscribe(String walletId, Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
         Objects.requireNonNull(consumer);
-        EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber<T>(walletId, eventType, consumer);
+        EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber(walletId, eventType, consumer);
+        webSocketEventPublisher.subscribe(subscriber);
+        return subscriber;
+    }
+    
+    public EventSubscriber<WebSocketEvent> subscribe(List<String> walletIds, List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+        Objects.requireNonNull(consumer);
+        EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber(walletIds, eventTypes, consumer);
         webSocketEventPublisher.subscribe(subscriber);
         return subscriber;
     }
@@ -148,6 +158,14 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
             this.payload = payload;
         }
 
+        public WebSocketEventHandler getEventHandler() {
+            return WebSocketEventHandler.this;
+        }
+        
+        public AriesClient createClient() throws IOException {
+            return Configuration.createClient(getThisWallet());
+        }
+        
         public String getTopic() {
             return topic;
         }
@@ -196,9 +214,16 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
             return this;
         }
 
-        public <T> Builder subscribe(String walletId, Class<T> eventType, Consumer<WebSocketEvent> consumer) {
+        public <T> Builder subscribe(String walletId, Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
             Objects.requireNonNull(consumer);
-            EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber<T>(walletId, eventType, consumer);
+            EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber(walletId, eventType, consumer);
+            this.subscribers.add(subscriber);
+            return this;
+        }
+        
+        public Builder subscribe(List<String> walletIds, List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+            Objects.requireNonNull(consumer);
+            EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber(walletIds, eventTypes, consumer);
             this.subscribers.add(subscriber);
             return this;
         }
