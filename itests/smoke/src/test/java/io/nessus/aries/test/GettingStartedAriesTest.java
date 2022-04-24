@@ -25,6 +25,7 @@ import org.hyperledger.aries.api.credential_definition.CredentialDefinition.Cred
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
 import org.hyperledger.aries.api.credentials.CredentialAttributes;
 import org.hyperledger.aries.api.credentials.CredentialPreview;
+import org.hyperledger.aries.api.issue_credential_v1.CredentialExchangeRole;
 import org.hyperledger.aries.api.issue_credential_v1.CredentialExchangeState;
 import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange;
 import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange.CredentialProposalDict.CredentialProposal;
@@ -39,7 +40,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.nessus.aries.common.CredentialProposalHelper;
-import io.nessus.aries.common.V1CredentialExchangeHelper;
 import io.nessus.aries.common.websocket.EventSubscriber;
 import io.nessus.aries.common.websocket.WebSocketEventHandler;
 import io.nessus.aries.common.websocket.WebSocketEventHandler.WebSocketEvent;
@@ -202,6 +202,14 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         createTranscriptCredentialDefinition(ctx);
         //createJobCertificateCredentialDefinition(ctx);
 
+       /*
+        * Create a peer connection between Alice/Faber
+        * 
+        *  Alice does not connect to Faber's public DID, Alice does not even have a public DID
+        *  Instead both parties create new DIDs that they use for their peer connection 
+        */
+       connectAliceToFaber(ctx);
+
         /*
          * Alice gets her Transcript from Faber College
          * 
@@ -270,7 +278,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 //          quitJobWithAcme(ctx);
     }
 
-    private void onboardGovernment(Context ctx) throws IOException {
+    void onboardGovernment(Context ctx) throws IOException {
 
         logSection("Onboard Government");
         
@@ -283,10 +291,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.governmentWallet = wallet;
         ctx.governmentDid = publicDid;
-        ctx.governmentWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
+        ctx.governmentWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(walletRegistry)
+                .build());
     }
 
-    private void onboardFaberCollege(Context ctx) throws IOException {
+    void onboardFaberCollege(Context ctx) throws IOException {
 
         logSection("Onboard Faber");
         
@@ -299,10 +310,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.faberWallet = wallet;
         ctx.faberDid = publicDid;
-        ctx.faberWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
+        ctx.faberWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(walletRegistry)
+                .build());
     }
 
-    private void onboardAcmeCorp(Context ctx) throws IOException {
+    void onboardAcmeCorp(Context ctx) throws IOException {
 
         logSection("Onboard Acme");
         
@@ -315,10 +329,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.acmeWallet = wallet;
         ctx.acmeDid = publicDid;
-        ctx.acmeWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
+        ctx.acmeWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(walletRegistry)
+                .build());
     }
 
-    private void onboardThriftBank(Context ctx) throws IOException {
+    void onboardThriftBank(Context ctx) throws IOException {
 
         logSection("Onboard Thrift");
         
@@ -331,72 +348,25 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.thriftWallet = wallet;
         ctx.thriftDid = publicDid;
-        ctx.thriftWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
+        ctx.thriftWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(walletRegistry)
+                .build());
     }
 
-    private void onboardAlice(Context ctx) throws IOException {
+    void onboardAlice(Context ctx) throws IOException {
 
         logSection("Onboard Alice");
         
         WalletRecord wallet = new WalletBuilder("Alice").build();
         ctx.aliceWallet = wallet;
-        ctx.aliceWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
+        ctx.aliceWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(walletRegistry)
+                .build());
     }
 
-    private void connectAliceToFaber(Context ctx) throws Exception {
-        
-        logSection("Connect Alice to Faber");
-        
-        Map<String, ConnectionRecord> connections = new HashMap<>();
-        CountDownLatch peerConnectionLatch = new CountDownLatch(2);
-        
-        Consumer<WebSocketEvent> eventConsumer = ev -> {
-            ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
-            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), con.getTheirRole(), con.getState(), con);
-            connections.put(ev.getTheirWalletId(), con);
-            if (ConnectionState.ACTIVE == con.getState()) {
-                peerConnectionLatch.countDown();
-            }
-        };
-        
-        String faberWalletId = ctx.faberWallet.getWalletId();
-        String aliceWalletId = ctx.aliceWallet.getWalletId();
-        
-        WebSocketEventHandler faberHandler = WebSockets.getEventHandler(ctx.faberWebSocket);
-        EventSubscriber<WebSocketEvent> faberSubscriber = faberHandler.subscribe(aliceWalletId, ConnectionRecord.class, eventConsumer);
-        
-        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.aliceWebSocket);
-        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(faberWalletId, ConnectionRecord.class, eventConsumer);
-        
-        AriesClient faber = createClient(ctx.faberWallet);
-        AriesClient alice = createClient(ctx.aliceWallet);
-        
-        // Inviter creates an invitation (/connections/create-invitation)
-        CreateInvitationResponse response = faber.connectionsCreateInvitation(
-                CreateInvitationRequest.builder().build(), 
-                CreateInvitationParams.builder()
-                    .autoAccept(true)
-                    .build()).get();
-        ConnectionInvitation invitation = response.getInvitation();
-        
-        // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
-        alice.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
-                .recipientKeys(invitation.getRecipientKeys())
-                .serviceEndpoint(invitation.getServiceEndpoint())
-                .build(), ConnectionReceiveInvitationFilter.builder()
-                    .autoAccept(true)
-                    .build()).get();
-
-        Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
-        
-        faberSubscriber.cancelSubscription();
-        aliceSubscriber.cancelSubscription();
-        
-        ctx.faberAliceConnection = connections.get(faberWalletId);
-        ctx.aliceFaberConnection = connections.get(aliceWalletId);
-    }
-
-    private void createTranscriptSchema(Context ctx) throws IOException {
+    void createTranscriptSchema(Context ctx) throws IOException {
 
         logSection("Create Transcript Schema");
         
@@ -518,25 +488,111 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 //        log.info(revRegEntryResponse);
     }
 
-    void getTranscriptFromFaber(Context ctx) throws Exception {
+    void connectAliceToFaber(Context ctx) throws Exception {
+        
+        logSection("Connect Alice to Faber");
+        
+        Map<String, ConnectionRecord> connections = new HashMap<>();
+        CountDownLatch peerConnectionLatch = new CountDownLatch(2);
+        
+        Consumer<WebSocketEvent> eventConsumer = ev -> {
+            ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
+            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), con.getTheirRole(), con.getState(), con);
+            connections.put(ev.getTheirWalletId(), con);
+            if (ConnectionState.ACTIVE == con.getState()) {
+                peerConnectionLatch.countDown();
+            }
+        };
+        
+        String faberWalletId = ctx.faberWallet.getWalletId();
+        String aliceWalletId = ctx.aliceWallet.getWalletId();
+        
+        WebSocketEventHandler faberHandler = WebSockets.getEventHandler(ctx.faberWebSocket);
+        EventSubscriber<WebSocketEvent> faberSubscriber = faberHandler.subscribe(aliceWalletId, ConnectionRecord.class, eventConsumer);
+        
+        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.aliceWebSocket);
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(faberWalletId, ConnectionRecord.class, eventConsumer);
+        
+        AriesClient faber = createClient(ctx.faberWallet);
+        AriesClient alice = createClient(ctx.aliceWallet);
+        
+        // Inviter creates an invitation (/connections/create-invitation)
+        CreateInvitationResponse response = faber.connectionsCreateInvitation(
+                CreateInvitationRequest.builder().build(), 
+                CreateInvitationParams.builder()
+                    .autoAccept(true)
+                    .build()).get();
+        ConnectionInvitation invitation = response.getInvitation();
+        
+        // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
+        alice.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+                .recipientKeys(invitation.getRecipientKeys())
+                .serviceEndpoint(invitation.getServiceEndpoint())
+                .build(), ConnectionReceiveInvitationFilter.builder()
+                    .autoAccept(true)
+                    .build()).get();
 
-        connectAliceToFaber(ctx);
+        Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
+        
+        faberSubscriber.cancelSubscription();
+        aliceSubscriber.cancelSubscription();
+        
+        ctx.faberAliceConnection = connections.get(faberWalletId);
+        ctx.aliceFaberConnection = connections.get(aliceWalletId);
+    }
+
+    void getTranscriptFromFaber(Context ctx) throws Exception {
 
         logSection("Alice gets Transcript from Faber");
         
         AriesClient faber = createClient(ctx.faberWallet);
-        V1CredentialExchangeHelper faberCredentialHelper = new V1CredentialExchangeHelper(ctx.faberWallet);
+        String faberWalletId = ctx.faberWallet.getWalletId();
+        String faberAliceConnectionId = ctx.faberAliceConnection.getConnectionId();
         
         AriesClient alice = createClient(ctx.aliceWallet);
-        V1CredentialExchangeHelper aliceCredentialHelper = new V1CredentialExchangeHelper(ctx.aliceWallet);
+        String aliceWalletId = ctx.aliceWallet.getWalletId();
+
+        V1CredentialExchange[] credex = new V1CredentialExchange[1];
+        CountDownLatch holderOfferReceived = new CountDownLatch(1);
+        CountDownLatch issuerRequestReceived = new CountDownLatch(1);
+        CountDownLatch holderCredentialReceived = new CountDownLatch(1);
+        CountDownLatch holderCredentialAcked = new CountDownLatch(1);
         
+        WebSocketEventHandler faberHandler = WebSockets.getEventHandler(ctx.faberWebSocket);
+        EventSubscriber<WebSocketEvent> faberSubscriber = faberHandler.subscribe(faberWalletId, V1CredentialExchange.class, ev -> { 
+            V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
+            if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
+                credex[0] = cex;
+                issuerRequestReceived.countDown();
+            }
+        });
+        
+        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.aliceWebSocket);
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, V1CredentialExchange.class, ev -> { 
+            V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
+            if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
+                credex[0] = cex;
+                holderOfferReceived.countDown();
+            }
+            else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_RECEIVED == cex.getState()) {
+                credex[0] = cex;
+                holderCredentialReceived.countDown();
+            }
+            else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_ACKED == cex.getState()) {
+                credex[0] = cex;
+                holderCredentialAcked.countDown();
+            }
+        });
+
         /* 1. Faber sends the Transcript Credential Offer
          * 
          * The value of this Transcript Credential is that it is provably issued by Faber College
          */
         
-        V1CredentialExchange credex = faber.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
-                .connectionId(ctx.faberAliceConnection.getConnectionId())
+        faber.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
+                .connectionId(faberAliceConnectionId)
                 .credentialDefinitionId(ctx.faberTranscriptCredDefId)
                 .credentialPreview(new CredentialPreview(CredentialAttributes.from(Map.of(
                         "first_name", "Alice", 
@@ -547,19 +603,14 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
                         "year", "2015", 
                         "average", "5"))))
                 .build()).get();
-        log.info("Faber: {} {} {}", credex.getRole(), credex.getState(), credex);
         
         /* 2. Alice inspects the the Transcript Credential Offer
          * 
          */
         
-        credex = aliceCredentialHelper.awaitV1CredentialExchange(
-                ctx.aliceFaberConnection.getConnectionId(), ctx.faberTranscriptCredDefId, 
-                CredentialExchangeState.OFFER_RECEIVED, 10, TimeUnit.SECONDS).get();
+        Assertions.assertTrue(holderOfferReceived.await(10, TimeUnit.SECONDS), "No HOLDER OFFER_RECEIVED");
         
-        CredentialProposal credentialProposal = credex.getCredentialProposalDict().getCredentialProposal();
-        log.info("{}", credentialProposal);
-        
+        CredentialProposal credentialProposal = credex[0].getCredentialProposalDict().getCredentialProposal();
         CredentialProposalHelper credentialHelper = new CredentialProposalHelper(credentialProposal);
         Assertions.assertEquals("Alice", credentialHelper.getAttributeValue("first_name"));
         Assertions.assertEquals("Garcia", credentialHelper.getAttributeValue("last_name"));
@@ -570,43 +621,41 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          * 
          */
         
-        credex = alice.issueCredentialRecordsSendRequest(credex.getCredentialExchangeId()).get();
-        log.info("Alice: {} {} {}", credex.getRole(), credex.getState(), credex);
+        alice.issueCredentialRecordsSendRequest(credex[0].getCredentialExchangeId()).get();
         
         /* 4. Faber receives the Transcript Credential Request
          * 
          */
 
-        credex = faberCredentialHelper.awaitV1CredentialExchange(
-                ctx.faberAliceConnection.getConnectionId(), ctx.faberTranscriptCredDefId, 
-                CredentialExchangeState.REQUEST_RECEIVED, 10, TimeUnit.SECONDS).get();
+        Assertions.assertTrue(issuerRequestReceived.await(10, TimeUnit.SECONDS), "No ISSUER REQUEST_RECEIVED");
         
         /* 5. Faber issues the Transcript Credential
          * 
          */
 
-        credex = faber.issueCredentialRecordsIssue(credex.getCredentialExchangeId(), V1CredentialIssueRequest.builder().build()).get();
-        log.info("Faber: {} {} {}", credex.getRole(), credex.getState(), credex);
+        faber.issueCredentialRecordsIssue(credex[0].getCredentialExchangeId(), V1CredentialIssueRequest.builder().build()).get();
         
         /* 6. Alice receives the Transcript Credential
          * 
          */
 
-        credex = aliceCredentialHelper.awaitV1CredentialExchange(
-                ctx.aliceFaberConnection.getConnectionId(), ctx.faberTranscriptCredDefId, 
-                CredentialExchangeState.CREDENTIAL_RECEIVED, 10, TimeUnit.SECONDS).get();
+        Assertions.assertTrue(holderCredentialReceived.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_RECEIVED");
         
         /* 7. Alice stores the Transcript Credential
          * 
          */
 
-        credex = alice.issueCredentialRecordsStore(credex.getCredentialExchangeId(), V1CredentialStoreRequest.builder()
-                .credentialId(credex.getCredentialId())
+        alice.issueCredentialRecordsStore(credex[0].getCredentialExchangeId(), V1CredentialStoreRequest.builder()
+                .credentialId(credex[0].getCredentialId())
                 .build()).get();
-        log.info("Alice: {} {} {}", credex.getRole(), credex.getState(), credex);
+
+        Assertions.assertTrue(holderCredentialAcked.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_ACKED");
+        
+        faberSubscriber.cancelSubscription();
+        aliceSubscriber.cancelSubscription();
     }
 
-    private void closeAndDeleteWallets(Context ctx) throws IOException {
+    void closeAndDeleteWallets(Context ctx) throws IOException {
         
         logSection("Remove Wallets");
         

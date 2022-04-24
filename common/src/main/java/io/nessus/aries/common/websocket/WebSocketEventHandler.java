@@ -128,7 +128,8 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
             } else {
                 throw new RuntimeException("Unsupported event topic: " + topic);
             }
-            log.debug("{}: [@{}] {}", getThisWalletName(), getWalletName(theirWalletId), value);
+            if (log.isTraceEnabled())
+                log.trace("{}: [@{}] {}", getThisWalletName(), getWalletName(theirWalletId), value);
             if (webSocketEventPublisher.hasSubscribers())
                 webSocketEventPublisher.submit(new WebSocketEvent(theirWalletId, topic, value));
         } catch (Throwable e) {
