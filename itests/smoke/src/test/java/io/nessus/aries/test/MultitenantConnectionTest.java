@@ -3,8 +3,11 @@ package io.nessus.aries.test;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.aries.AriesClient;
@@ -16,11 +19,13 @@ import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.hyperledger.aries.api.connection.CreateInvitationResponse;
 import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import org.hyperledger.aries.api.settings.Settings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import io.nessus.aries.common.WebSocketEventHandler;
-import io.nessus.aries.common.WebSockets;
+import io.nessus.aries.common.websocket.WebSocketEventHandler;
+import io.nessus.aries.common.websocket.WebSocketEventHandler.WebSocketEvent;
+import io.nessus.aries.common.websocket.WebSockets;
 import okhttp3.WebSocket;
 
 /**
@@ -45,41 +50,38 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
                 
         logSection("Connect Alice to Faber");
         
-        AriesClient faber = createClient(faberWallet);
-        AriesClient alice = createClient(aliceWallet);
-
-        ConnectionRecord[] aliceFaberConnection = new ConnectionRecord[1];
-        ConnectionRecord[] faberAliceConnection = new ConnectionRecord[1];
-        CountDownLatch aliceFaberConnectionLatch = new CountDownLatch(2);
+        Map<String, ConnectionRecord> connections = new HashMap<>();
+        CountDownLatch peerConnectionLatch = new CountDownLatch(2);
         
-        class GettingStartedEventHandler extends WebSocketEventHandler {
-            
-            @Override
-            public synchronized void handleConnection(String walletId, ConnectionRecord con) throws Exception {
-                super.handleConnection(walletId, con);
-                if ("Alice".equals(getTheirWalletName(walletId)) && "Faber".equals(thisWalletName())) {
-                    aliceFaberConnection[0] = con;
-                    if (ConnectionState.ACTIVE == con.getState()) {
-                        log.info("{} CONNECTION ACTIVE", thisWalletName());
-                        aliceFaberConnectionLatch.countDown();
-                    }
-                }
-                if ("Faber".equals(getTheirWalletName(walletId)) && "Alice".equals(thisWalletName())) {
-                    faberAliceConnection[0] = con;
-                    if (ConnectionState.ACTIVE == con.getState()) {
-                        log.info("{} CONNECTION ACTIVE", thisWalletName());
-                        aliceFaberConnectionLatch.countDown();
-                    }
-                }
+        WebSocket acmeSocket = WebSockets.createWebSocket(acmeWallet, new WebSocketEventHandler.Builder()
+                .subscribe(null, Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(walletRegistry)
+                .build());
+        
+        Consumer<WebSocketEvent> eventConsumer = ev -> {
+            ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
+            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), con.getTheirRole(), con.getState(), con);
+            connections.put(ev.getTheirWalletId(), con);
+            if (ConnectionState.ACTIVE == con.getState()) {
+                peerConnectionLatch.countDown();
             }
-        }
+        };
         
-        WebSocket acmeSocket = WebSockets.createWebSocket(acmeWallet, new GettingStartedEventHandler().walletRegistry(walletRegistry));
-        WebSocket faberSocket = WebSockets.createWebSocket(faberWallet, new GettingStartedEventHandler().walletRegistry(walletRegistry));
-        WebSocket aliceSocket = WebSockets.createWebSocket(aliceWallet, new GettingStartedEventHandler().walletRegistry(walletRegistry));
+        WebSocket faberSocket = WebSockets.createWebSocket(faberWallet, new WebSocketEventHandler.Builder()
+                .subscribe(aliceWallet.getWalletId(), ConnectionRecord.class, eventConsumer)
+                .walletRegistry(walletRegistry)
+                .build());
+        
+        WebSocket aliceSocket = WebSockets.createWebSocket(aliceWallet, new WebSocketEventHandler.Builder()
+                .subscribe(faberWallet.getWalletId(), ConnectionRecord.class, eventConsumer)
+                .walletRegistry(walletRegistry)
+                .build());
         
         try {
             
+            AriesClient faber = createClient(faberWallet);
+            AriesClient alice = createClient(aliceWallet);
+
             // Inviter creates an invitation (/connections/create-invitation)
             CreateInvitationResponse response = faber.connectionsCreateInvitation(
                     CreateInvitationRequest.builder().build(), 
@@ -96,17 +98,25 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
                         .autoAccept(true)
                         .build()).get();
 
-            Assertions.assertTrue(aliceFaberConnectionLatch.await(10, TimeUnit.SECONDS));
+            Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
             
-            Assertions.assertEquals(ConnectionState.ACTIVE, aliceFaberConnection[0].getState());
-            Assertions.assertEquals(ConnectionState.ACTIVE, faberAliceConnection[0].getState());
+            // Verify that Faber can access their connection
+            String faberConnectionId = connections.get(faberWallet.getWalletId()).getConnectionId();
+            ConnectionRecord faberConnection = faber.connections().get().stream().filter(c -> c.getConnectionId().equals(faberConnectionId)).findAny().get();
+            Assertions.assertEquals(ConnectionState.ACTIVE, faberConnection.getState());
+            
+            // Verify that Alice can access her connection
+            String aliceConnectionId = connections.get(aliceWallet.getWalletId()).getConnectionId();
+            ConnectionRecord aliceConnection = alice.connections().get().stream().filter(c -> c.getConnectionId().equals(aliceConnectionId)).findAny().get();
+            Assertions.assertEquals(ConnectionState.ACTIVE, aliceConnection.getState());
             
         } finally {
             WebSockets.closeWebSocket(aliceSocket);
             WebSockets.closeWebSocket(faberSocket);
             WebSockets.closeWebSocket(acmeSocket);
-            removeWallet(faberWallet);
             removeWallet(aliceWallet);
+            removeWallet(faberWallet);
+            removeWallet(acmeWallet);
         }
     }
 }

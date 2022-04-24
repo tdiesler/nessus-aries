@@ -1,22 +1,23 @@
 
 package io.nessus.aries.test;
 
-import static io.nessus.aries.common.WebSockets.closeWebSocket;
-import static io.nessus.aries.common.WebSockets.createWebSocket;
+import static io.nessus.aries.common.websocket.WebSockets.closeWebSocket;
+import static io.nessus.aries.common.websocket.WebSockets.createWebSocket;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
-import org.hyperledger.aries.api.connection.ConnectionState;
-import org.hyperledger.aries.api.did_exchange.DidExchangeAcceptRequestFilter;
 import org.hyperledger.aries.api.did_exchange.DidExchangeCreateRequestFilter;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import org.hyperledger.aries.api.settings.Settings;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import io.nessus.aries.common.WebSocketEventHandler;
+import io.nessus.aries.common.websocket.WebSocketEventHandler;
 import okhttp3.WebSocket;
 
 /**
@@ -39,25 +40,18 @@ public class DidExchangeTest extends AbstractAriesTest {
                 
         log.info("===================================================================================");
         
-        CountDownLatch activeLatch = new CountDownLatch(2);
-        class WSEHandler extends WebSocketEventHandler  {
-            
-            @Override
-            public void handleConnection(String walletId, ConnectionRecord con) throws Exception {
-                super.handleConnection(walletId, con);
-                if (ConnectionState.REQUEST == con.getState() && !thisWalletId().equals(walletId)) {
-                    log.info("{} ACCEPT REQUEST", thisWalletName());
-                    createClient().didExchangeAcceptRequest(con.getConnectionId(), DidExchangeAcceptRequestFilter.builder().build()).get();
-                }
-                if (ConnectionState.ACTIVE == con.getState() && thisWalletId().equals(walletId)) {
-                    log.info("{} CONNECTION ACTIVE", thisWalletName());
-                    activeLatch.countDown();
-                }
-            }
-        };
+        //Map<String, ConnectionRecord> connections = new HashMap<>();
+        CountDownLatch peerConnectionLatch = new CountDownLatch(2);
         
-        WebSocket inviterSocket = createWebSocket(faberWallet, new WSEHandler());
-        WebSocket inviteeSocket = createWebSocket(aliceWallet, new WSEHandler());
+        WebSocket inviterSocket = createWebSocket(faberWallet, new WebSocketEventHandler.Builder()
+                .subscribe(null, Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(walletRegistry)
+                .build());
+        
+        WebSocket inviteeSocket = createWebSocket(aliceWallet, new WebSocketEventHandler.Builder()
+                .subscribe(null, Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(walletRegistry)
+                .build());
         
         try {
             AriesClient faber = createClient(faberWallet);
@@ -69,7 +63,7 @@ public class DidExchangeTest extends AbstractAriesTest {
                     .build()).get();
             log.info("{}", con);
 
-            //Assertions.assertTrue(activeLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
+            Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
             
         } finally {
             closeWebSocket(inviterSocket);

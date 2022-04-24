@@ -5,9 +5,11 @@ import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.acy_py.generated.model.DID;
@@ -38,8 +40,10 @@ import org.junit.jupiter.api.Test;
 
 import io.nessus.aries.common.CredentialProposalHelper;
 import io.nessus.aries.common.V1CredentialExchangeHelper;
-import io.nessus.aries.common.WebSocketEventHandler;
-import io.nessus.aries.common.WebSockets;
+import io.nessus.aries.common.websocket.EventSubscriber;
+import io.nessus.aries.common.websocket.WebSocketEventHandler;
+import io.nessus.aries.common.websocket.WebSocketEventHandler.WebSocketEvent;
+import io.nessus.aries.common.websocket.WebSockets;
 import okhttp3.WebSocket;
 
 /**
@@ -83,38 +87,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         
         String transcriptSchemaId;
         String jobCertificateSchemaId;
-
-        CountDownLatch aliceFaberConnectionLatch = new CountDownLatch(2);
     }
     
-    class GettingStartedEventHandler extends WebSocketEventHandler {
-        
-        final Context ctx;
-        
-        GettingStartedEventHandler(Context ctx) {
-            this.ctx = ctx;
-        }
-
-        @Override
-        public synchronized void handleConnection(String walletId, ConnectionRecord con) throws Exception {
-            super.handleConnection(walletId, con);
-            if ("Alice".equals(getTheirWalletName(walletId)) && "Faber".equals(thisWalletName())) {
-                ctx.aliceFaberConnection = con;
-                if (ConnectionState.ACTIVE == con.getState()) {
-                    log.info("{} CONNECTION ACTIVE", thisWalletName());
-                    ctx.aliceFaberConnectionLatch.countDown();
-                }
-            }
-            if ("Faber".equals(getTheirWalletName(walletId)) && "Alice".equals(thisWalletName())) {
-                ctx.faberAliceConnection = con;
-                if (ConnectionState.ACTIVE == con.getState()) {
-                    log.info("{} CONNECTION ACTIVE", thisWalletName());
-                    ctx.aliceFaberConnectionLatch.countDown();
-                }
-            }
-        }
-    }
-
     @Test
     public void testWorkflow() throws Exception {
         Context ctx = new Context();
@@ -309,7 +283,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.governmentWallet = wallet;
         ctx.governmentDid = publicDid;
-        ctx.governmentWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
+        ctx.governmentWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
     }
 
     private void onboardFaberCollege(Context ctx) throws IOException {
@@ -325,7 +299,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.faberWallet = wallet;
         ctx.faberDid = publicDid;
-        ctx.faberWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
+        ctx.faberWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
     }
 
     private void onboardAcmeCorp(Context ctx) throws IOException {
@@ -341,7 +315,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.acmeWallet = wallet;
         ctx.acmeDid = publicDid;
-        ctx.acmeWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
+        ctx.acmeWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
     }
 
     private void onboardThriftBank(Context ctx) throws IOException {
@@ -357,7 +331,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
         ctx.thriftWallet = wallet;
         ctx.thriftDid = publicDid;
-        ctx.thriftWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
+        ctx.thriftWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
     }
 
     private void onboardAlice(Context ctx) throws IOException {
@@ -366,12 +340,33 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         
         WalletRecord wallet = new WalletBuilder("Alice").build();
         ctx.aliceWallet = wallet;
-        ctx.aliceWebSocket = WebSockets.createWebSocket(wallet, new GettingStartedEventHandler(ctx).walletRegistry(walletRegistry));
+        ctx.aliceWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder().walletRegistry(walletRegistry).build());
     }
 
     private void connectAliceToFaber(Context ctx) throws Exception {
         
         logSection("Connect Alice to Faber");
+        
+        Map<String, ConnectionRecord> connections = new HashMap<>();
+        CountDownLatch peerConnectionLatch = new CountDownLatch(2);
+        
+        Consumer<WebSocketEvent> eventConsumer = ev -> {
+            ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
+            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), con.getTheirRole(), con.getState(), con);
+            connections.put(ev.getTheirWalletId(), con);
+            if (ConnectionState.ACTIVE == con.getState()) {
+                peerConnectionLatch.countDown();
+            }
+        };
+        
+        String faberWalletId = ctx.faberWallet.getWalletId();
+        String aliceWalletId = ctx.aliceWallet.getWalletId();
+        
+        WebSocketEventHandler faberHandler = WebSockets.getEventHandler(ctx.faberWebSocket);
+        EventSubscriber<WebSocketEvent> faberSubscriber = faberHandler.subscribe(aliceWalletId, ConnectionRecord.class, eventConsumer);
+        
+        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.aliceWebSocket);
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(faberWalletId, ConnectionRecord.class, eventConsumer);
         
         AriesClient faber = createClient(ctx.faberWallet);
         AriesClient alice = createClient(ctx.aliceWallet);
@@ -392,7 +387,13 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
                     .autoAccept(true)
                     .build()).get();
 
-        Assertions.assertTrue(ctx.aliceFaberConnectionLatch.await(10, TimeUnit.SECONDS));
+        Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
+        
+        faberSubscriber.cancelSubscription();
+        aliceSubscriber.cancelSubscription();
+        
+        ctx.faberAliceConnection = connections.get(faberWalletId);
+        ctx.aliceFaberConnection = connections.get(aliceWalletId);
     }
 
     private void createTranscriptSchema(Context ctx) throws IOException {
