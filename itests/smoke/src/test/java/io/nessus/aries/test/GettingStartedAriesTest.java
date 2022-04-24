@@ -1,11 +1,19 @@
 package io.nessus.aries.test;
 
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.Acme;
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.Alice;
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.Faber;
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.Government;
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.JobCertificateCredDefId;
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.JobCertificateSchemaId;
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.Thrift;
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.TranscriptCredDefId;
+import static io.nessus.aries.test.GettingStartedAriesTest.Context.TranscriptSchemaId;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +47,8 @@ import org.hyperledger.aries.api.schema.SchemaSendResponse.Schema;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.common.AttachmentKey;
+import io.nessus.aries.common.AttachmentSupport;
 import io.nessus.aries.common.CredentialProposalHelper;
 import io.nessus.aries.common.websocket.EventSubscriber;
 import io.nessus.aries.common.websocket.WebSocketEventHandler;
@@ -59,34 +69,47 @@ import okhttp3.WebSocket;
  */
 public class GettingStartedAriesTest extends AbstractAriesTest {
 
-    class Context {
+    class Context extends AttachmentSupport {
 
-        DID governmentDid;
-        WalletRecord governmentWallet;
-        WebSocket governmentWebSocket;
-
-        DID faberDid;
-        WalletRecord faberWallet;
-        String faberTranscriptCredDefId;
-        WebSocket faberWebSocket;
-        ConnectionRecord faberAliceConnection;
-
-        DID acmeDid;
-        WalletRecord acmeWallet;
-        String acmeJobCertificateCredDefId;
-        String acmeJobCertificateRevocationRegistryId;
-        WebSocket acmeWebSocket;
-
-        DID thriftDid;
-        WalletRecord thriftWallet;
-        WebSocket thriftWebSocket;
-
-        WalletRecord aliceWallet;
-        WebSocket aliceWebSocket;
-        ConnectionRecord aliceFaberConnection;
+        static final String Government = "Government";
+        static final String Faber = "Faber";
+        static final String Acme = "Acme";
+        static final String Thrift = "Thrift";
+        static final String Alice = "Alice";
         
-        String transcriptSchemaId;
-        String jobCertificateSchemaId;
+        static final String TranscriptSchemaId = "TranscriptSchemaId";
+        static final String TranscriptCredDefId = "TranscriptSchemaId";
+        static final String JobCertificateSchemaId = "JobCertificateSchemaId";
+        static final String JobCertificateCredDefId = "JobCertificateCredDefId";
+        
+        WalletRecord getWallet(String name) {
+            return getAttachment(name, WalletRecord.class);
+        }
+        
+        DID getDID(String name) {
+            return getAttachment(name, DID.class);
+        }
+        
+        WebSocket getWebSocket(String name) {
+            return getAttachment(name, WebSocket.class);
+        }
+        
+        ConnectionRecord getConnection(String peerA, String peerB) {
+            return getAttachment(String.format("%s%sConnection", peerA, peerB), ConnectionRecord.class);
+        }
+
+        String getAttachment(String name) {
+            return getAttachment(name, String.class);
+        }
+        
+        <T> T getAttachment(String name, Class<T> type) {
+            return getAttachment(new AttachmentKey<>(name, type));
+        }
+        
+        @SuppressWarnings("unchecked")
+        <T> T putAttachment(String name, T obj) {
+            return putAttachment(new AttachmentKey<T>(name, (Class<T>) obj.getClass()), obj);
+        }
     }
     
     @Test
@@ -208,7 +231,8 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         *  Alice does not connect to Faber's public DID, Alice does not even have a public DID
         *  Instead both parties create new DIDs that they use for their peer connection 
         */
-       connectAliceToFaber(ctx);
+        
+        connectPeers(ctx, Alice, Faber);
 
         /*
          * Alice gets her Transcript from Faber College
@@ -230,6 +254,15 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
          */
 
         getTranscriptFromFaber(ctx);
+
+        /*
+         * Create a peer connection between Alice/Acme
+         * 
+         *  Alice does not connect to Faber's public DID, Alice does not even have a public DID
+         *  Instead both parties create new DIDs that they use for their peer connection 
+         */
+         
+        connectPeers(ctx, Alice, Acme);
 
         /*
          * Alice applies for a job at Acme
@@ -280,90 +313,101 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 
     void onboardGovernment(Context ctx) throws IOException {
 
-        logSection("Onboard Government");
+        logSection("Onboard " + Government);
         
-        WalletRecord wallet = new WalletBuilder("Government")
+        WalletRecord wallet = new WalletBuilder(Government)
                 .ledgerRole(TRUSTEE).selfRegisterNym().build();
 
         // Create client for sub wallet
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.governmentWallet = wallet;
-        ctx.governmentDid = publicDid;
-        ctx.governmentWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
+        
+        ctx.putAttachment(Government, wallet);
+        ctx.putAttachment(Government, publicDid);
+        ctx.putAttachment(new AttachmentKey<>(Government, WebSocket.class), webSocket);
     }
 
     void onboardFaberCollege(Context ctx) throws IOException {
 
-        logSection("Onboard Faber");
+        logSection("Onboard " + Faber);
         
-        WalletRecord wallet = new WalletBuilder("Faber")
-                .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
+        WalletRecord wallet = new WalletBuilder(Faber)
+                .registerNym(ctx.getWallet(Government)).ledgerRole(ENDORSER).build();
 
         // Create client for sub wallet
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.faberWallet = wallet;
-        ctx.faberDid = publicDid;
-        ctx.faberWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
+        
+        ctx.putAttachment(Faber, wallet);
+        ctx.putAttachment(Faber, publicDid);
+        ctx.putAttachment(new AttachmentKey<>(Faber, WebSocket.class), webSocket);
     }
 
     void onboardAcmeCorp(Context ctx) throws IOException {
 
-        logSection("Onboard Acme");
+        logSection("Onboard " + Acme);
         
-        WalletRecord wallet = new WalletBuilder("Acme")
-                .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
+        WalletRecord wallet = new WalletBuilder(Acme)
+                .registerNym(ctx.getWallet(Government)).ledgerRole(ENDORSER).build();
 
         // Create client for sub wallet
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.acmeWallet = wallet;
-        ctx.acmeDid = publicDid;
-        ctx.acmeWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
+        
+        ctx.putAttachment(Acme, wallet);
+        ctx.putAttachment(Acme, publicDid);
+        ctx.putAttachment(new AttachmentKey<>(Acme, WebSocket.class), webSocket);
     }
 
     void onboardThriftBank(Context ctx) throws IOException {
 
-        logSection("Onboard Thrift");
+        logSection("Onboard " + Thrift);
         
-        WalletRecord wallet = new WalletBuilder("Thrift")
-                .registerNym(ctx.governmentWallet).ledgerRole(ENDORSER).build();
+        WalletRecord wallet = new WalletBuilder(Thrift)
+                .registerNym(ctx.getWallet(Government)).ledgerRole(ENDORSER).build();
 
         // Create client for sub wallet
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        ctx.thriftWallet = wallet;
-        ctx.thriftDid = publicDid;
-        ctx.thriftWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
+        
+        ctx.putAttachment(Thrift, wallet);
+        ctx.putAttachment(Thrift, publicDid);
+        ctx.putAttachment(new AttachmentKey<>(Thrift, WebSocket.class), webSocket);
     }
 
     void onboardAlice(Context ctx) throws IOException {
 
-        logSection("Onboard Alice");
+        logSection("Onboard " + Alice);
         
-        WalletRecord wallet = new WalletBuilder("Alice").build();
-        ctx.aliceWallet = wallet;
-        ctx.aliceWebSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+        WalletRecord wallet = new WalletBuilder(Alice).build();
+        
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
+        
+        ctx.putAttachment(Alice, wallet);
+        ctx.putAttachment(new AttachmentKey<>(Alice, WebSocket.class), webSocket);
     }
 
     void createTranscriptSchema(Context ctx) throws IOException {
@@ -374,7 +418,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient client = createClient(ctx.governmentWallet);
+        AriesClient client = createClient(ctx.getWallet(Government));
 
         SchemaSendResponse schemaResponse = client.schemas(SchemaSendRequest.builder()
                 .schemaVersion("1.2")
@@ -383,7 +427,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
                 .build()).get();
         log.info("{}", schemaResponse);
 
-        ctx.transcriptSchemaId = schemaResponse.getSchemaId();
+        ctx.putAttachment(TranscriptSchemaId, schemaResponse.getSchemaId());
     }
 
     void createJobCertificateSchema(Context ctx) throws Exception {
@@ -394,7 +438,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient client = createClient(ctx.governmentWallet);
+        AriesClient client = createClient(ctx.getWallet(Government));
 
         SchemaSendResponse schemaResponse = client.schemas(SchemaSendRequest.builder()
                 .schemaVersion("0.2")
@@ -403,7 +447,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
                 .build()).get();
         log.info("{}", schemaResponse);
 
-        ctx.jobCertificateSchemaId = schemaResponse.getSchemaId();
+        ctx.putAttachment(JobCertificateSchemaId, schemaResponse.getSchemaId());
     }
 
     void createTranscriptCredentialDefinition(Context ctx) throws Exception {
@@ -413,9 +457,9 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // 1. Faber get the Transcript Credential Schema
 
         // Create client for sub wallet
-        AriesClient faber = createClient(ctx.faberWallet);
+        AriesClient faber = createClient(ctx.getWallet(Faber));
 
-        Schema schema = faber.schemasGetById(ctx.transcriptSchemaId).get();
+        Schema schema = faber.schemasGetById(ctx.getAttachment(TranscriptSchemaId)).get();
         log.info("{}", schema);
 
         // 2. Faber creates the Credential Definition related to the received Credential Schema and send it to the ledger
@@ -426,7 +470,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
                 .build()).get();
         log.info("{}", creddefResponse);
 
-        ctx.faberTranscriptCredDefId = creddefResponse.getCredentialDefinitionId();
+        ctx.putAttachment(TranscriptCredDefId, creddefResponse.getCredentialDefinitionId());
     }
 
     void createJobCertificateCredentialDefinition(Context ctx) throws Exception {
@@ -436,9 +480,9 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         // 1. Acme get the Transcript Credential Schema
 
         // Create client for sub wallet
-        AriesClient acme = createClient(ctx.acmeWallet);
+        AriesClient acme = createClient(ctx.getWallet(Acme));
 
-        Schema schema = acme.schemasGetById(ctx.jobCertificateSchemaId).get();
+        Schema schema = acme.schemasGetById(ctx.getAttachment(JobCertificateSchemaId)).get();
         log.info("{}", schema);
 
         // 2. Acme creates the Credential Definition related to the received Credential Schema and send it to the ledger
@@ -449,7 +493,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
                 .build()).get();
         log.info("{}", creddefResponse);
 
-        ctx.acmeJobCertificateCredDefId = creddefResponse.getCredentialDefinitionId();
+        ctx.putAttachment(JobCertificateCredDefId, creddefResponse.getCredentialDefinitionId());
 
         /* 3. Acme creates a Revocation Registry for the given Credential Definition.
          * 
@@ -488,36 +532,37 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
 //        log.info(revRegEntryResponse);
     }
 
-    void connectAliceToFaber(Context ctx) throws Exception {
+    void connectPeers(Context ctx, String peerA, String peerB) throws Exception {
         
-        logSection("Connect Alice to Faber");
+        logSection(String.format("Connect %s to %s", peerA, peerB));
         
-        Map<String, ConnectionRecord> connections = new HashMap<>();
         CountDownLatch peerConnectionLatch = new CountDownLatch(2);
         
         Consumer<WebSocketEvent> eventConsumer = ev -> {
+            String thisName = ev.getThisWalletName();
+            String theirName = ev.getTheirWalletName();
             ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
-            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), con.getTheirRole(), con.getState(), con);
-            connections.put(ev.getTheirWalletId(), con);
+            log.info("{}: [@{}] {} {} {}", thisName, theirName, con.getTheirRole(), con.getState(), con);
+            ctx.putAttachment(String.format("%s%sConnection", theirName, thisName), con);
             if (ConnectionState.ACTIVE == con.getState()) {
                 peerConnectionLatch.countDown();
             }
         };
         
-        String faberWalletId = ctx.faberWallet.getWalletId();
-        String aliceWalletId = ctx.aliceWallet.getWalletId();
+        WalletRecord walletA = ctx.getWallet(peerA);
+        WalletRecord walletB = ctx.getWallet(peerB);
         
-        WebSocketEventHandler faberHandler = WebSockets.getEventHandler(ctx.faberWebSocket);
-        EventSubscriber<WebSocketEvent> faberSubscriber = faberHandler.subscribe(aliceWalletId, ConnectionRecord.class, eventConsumer);
+        WebSocketEventHandler eventHandlerA = WebSockets.getEventHandler(ctx.getWebSocket(peerA));
+        EventSubscriber<WebSocketEvent> aliceSubscriber = eventHandlerA.subscribe(walletB.getWalletId(), ConnectionRecord.class, eventConsumer);
         
-        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.aliceWebSocket);
-        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(faberWalletId, ConnectionRecord.class, eventConsumer);
+        WebSocketEventHandler eventHandlerB = WebSockets.getEventHandler(ctx.getWebSocket(peerB));
+        EventSubscriber<WebSocketEvent> faberSubscriber = eventHandlerB.subscribe(walletA.getWalletId(), ConnectionRecord.class, eventConsumer);
         
-        AriesClient faber = createClient(ctx.faberWallet);
-        AriesClient alice = createClient(ctx.aliceWallet);
+        AriesClient clientA = createClient(walletA);
+        AriesClient clientB = createClient(walletB);
         
         // Inviter creates an invitation (/connections/create-invitation)
-        CreateInvitationResponse response = faber.connectionsCreateInvitation(
+        CreateInvitationResponse response = clientB.connectionsCreateInvitation(
                 CreateInvitationRequest.builder().build(), 
                 CreateInvitationParams.builder()
                     .autoAccept(true)
@@ -525,7 +570,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         ConnectionInvitation invitation = response.getInvitation();
         
         // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
-        alice.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+        clientA.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
                 .recipientKeys(invitation.getRecipientKeys())
                 .serviceEndpoint(invitation.getServiceEndpoint())
                 .build(), ConnectionReceiveInvitationFilter.builder()
@@ -536,21 +581,20 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         
         faberSubscriber.cancelSubscription();
         aliceSubscriber.cancelSubscription();
-        
-        ctx.faberAliceConnection = connections.get(faberWalletId);
-        ctx.aliceFaberConnection = connections.get(aliceWalletId);
     }
 
     void getTranscriptFromFaber(Context ctx) throws Exception {
 
         logSection("Alice gets Transcript from Faber");
         
-        AriesClient faber = createClient(ctx.faberWallet);
-        String faberWalletId = ctx.faberWallet.getWalletId();
-        String faberAliceConnectionId = ctx.faberAliceConnection.getConnectionId();
+        WalletRecord faberWallet = ctx.getWallet(Faber);
+        String faberWalletId = ctx.getWallet(Faber).getWalletId();
+        AriesClient faber = createClient(faberWallet);
+        String faberAliceConnectionId = ctx.getConnection(Faber,  Alice).getConnectionId();
         
-        AriesClient alice = createClient(ctx.aliceWallet);
-        String aliceWalletId = ctx.aliceWallet.getWalletId();
+        WalletRecord aliceWallet = ctx.getWallet(Alice);
+        String aliceWalletId = aliceWallet.getWalletId();
+        AriesClient alice = createClient(aliceWallet);
 
         V1CredentialExchange[] credex = new V1CredentialExchange[1];
         CountDownLatch holderOfferReceived = new CountDownLatch(1);
@@ -558,7 +602,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         CountDownLatch holderCredentialReceived = new CountDownLatch(1);
         CountDownLatch holderCredentialAcked = new CountDownLatch(1);
         
-        WebSocketEventHandler faberHandler = WebSockets.getEventHandler(ctx.faberWebSocket);
+        WebSocketEventHandler faberHandler = WebSockets.getEventHandler(ctx.getWebSocket(Faber));
         EventSubscriber<WebSocketEvent> faberSubscriber = faberHandler.subscribe(faberWalletId, V1CredentialExchange.class, ev -> { 
             V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
@@ -568,7 +612,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
             }
         });
         
-        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.aliceWebSocket);
+        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
         EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, V1CredentialExchange.class, ev -> { 
             V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
@@ -593,7 +637,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         
         faber.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
                 .connectionId(faberAliceConnectionId)
-                .credentialDefinitionId(ctx.faberTranscriptCredDefId)
+                .credentialDefinitionId(ctx.getAttachment(TranscriptCredDefId))
                 .credentialPreview(new CredentialPreview(CredentialAttributes.from(Map.of(
                         "first_name", "Alice", 
                         "last_name", "Garcia", 
@@ -659,10 +703,7 @@ public class GettingStartedAriesTest extends AbstractAriesTest {
         
         logSection("Remove Wallets");
         
-        removeWallet(ctx.governmentWallet);
-        removeWallet(ctx.faberWallet);
-        removeWallet(ctx.acmeWallet);
-        removeWallet(ctx.thriftWallet);
-        removeWallet(ctx.aliceWallet);
+        for (String name : Arrays.asList(Government, Faber, Acme, Thrift, Alice))
+            removeWallet(ctx.getWallet(name));
     }
 }

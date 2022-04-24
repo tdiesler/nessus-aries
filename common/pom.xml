@@ -36,6 +36,10 @@
     <packaging>jar</packaging>
 
 	<dependencies>
+        <dependency>
+            <groupId>io.nessus</groupId>
+            <artifactId>nessus-common-core</artifactId>
+        </dependency>
 		<dependency>
 		   <groupId>network.idu.acapy</groupId>
 		   <artifactId>aries-client-python</artifactId>
