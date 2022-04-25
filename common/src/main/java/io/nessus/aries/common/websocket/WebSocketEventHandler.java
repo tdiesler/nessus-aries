@@ -26,11 +26,15 @@ import org.hyperledger.aries.api.revocation.RevocationEvent;
 import org.hyperledger.aries.api.revocation.RevocationNotificationEvent;
 import org.hyperledger.aries.api.settings.Settings;
 import org.hyperledger.aries.api.trustping.PingEvent;
+import org.hyperledger.aries.config.GsonConfig;
 import org.hyperledger.aries.webhook.EventParser;
 import org.hyperledger.aries.webhook.EventType;
 import org.hyperledger.aries.webhook.IEventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 
 import io.nessus.aries.common.Configuration;
 import io.nessus.aries.common.SafeConsumer;
@@ -45,7 +49,7 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
 
     private final WalletRegistry walletRegistry;
     private WalletRecord thisWallet;
-
+    
     private WebSocketEventHandler(WalletRegistry walletRegistry, List<EventSubscriber<WebSocketEvent>> subscribers) {
         this.walletRegistry = walletRegistry;
         for (EventSubscriber<WebSocketEvent> sub : subscribers)
@@ -136,7 +140,12 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
             } else if (EventType.SETTINGS.valueEquals(topic)) {
                 value = parser.parseValueSave(payload, Settings.class).orElseThrow();
             } else {
-                throw new RuntimeException("Unsupported event topic: " + topic);
+                log.warn("Unsupported event topic: {}", topic);
+                if (log.isDebugEnabled()) {
+                    JsonElement json = JsonParser.parseString(payload);
+                    log.debug(GsonConfig.prettyPrinter().toJson(json));
+                }
+                return;
             }
             if (log.isTraceEnabled())
                 log.trace("{}: [@{}] {}", getThisWalletName(), getWalletName(theirWalletId), value);
