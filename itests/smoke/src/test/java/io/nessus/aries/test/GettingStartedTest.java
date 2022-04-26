@@ -106,8 +106,8 @@ public class GettingStartedTest extends AbstractAriesTest {
             return getAttachment(name, WebSocket.class);
         }
         
-        ConnectionRecord getConnection(String peerA, String peerB) {
-            return getAttachment(String.format("%s%sConnection", peerA, peerB), ConnectionRecord.class);
+        ConnectionRecord getConnection(String inviter, String invitee) {
+            return getAttachment(String.format("%s%sConnection", inviter, invitee), ConnectionRecord.class);
         }
 
         String getAttachment(String name) {
@@ -240,11 +240,11 @@ public class GettingStartedTest extends AbstractAriesTest {
        /*
         * Create a peer connection between Alice/Faber
         * 
-        *  Alice does not connect to Faber's public DID, Alice does not even have a public DID
-        *  Instead both parties create new DIDs that they use for their peer connection 
+        * Alice does not connect to Faber's public DID, Alice does not even have a public DID
+        * Instead both parties create new DIDs that they use for their peer connection 
         */
         
-        connectPeers(ctx, Alice, Faber);
+        connectPeers(ctx, Faber, Alice);
 
         /*
          * Alice gets her Transcript from Faber College
@@ -274,7 +274,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          *  Instead both parties create new DIDs that they use for their peer connection 
          */
          
-        connectPeers(ctx, Alice, Acme);
+        connectPeers(ctx, Acme, Alice);
 
         /*
          * Alice applies for a job at Acme
@@ -298,13 +298,13 @@ public class GettingStartedTest extends AbstractAriesTest {
         applyForJobWithAcme(ctx);
 
         /*
-         * Alice gets the job and hence receives a verifieable credential about her employment with Acme
+         * Alice gets the job and hence receives a JobCertificate from Acme
          * 
-         * This is similar to the Transcript VC that she got from Faber, except that the employment VC 
-         * can be revoked by Faber  
+         * This is similar to the Transcript VC that she got from Faber, except that the 
+         * JobCertificate credential can be revoked by Acme  
          */
         
-        getEmploymentWithAcme(ctx); 
+        getJobWithAcme(ctx); 
 
         /*
          * Alice applies for a loan with Thrift Bank
@@ -343,8 +343,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
+        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -364,8 +365,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
+        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -385,8 +387,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
+        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -406,8 +409,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
+        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -422,8 +426,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         WalletRecord wallet = new WalletBuilder(Alice).build();
         
+        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe((String) null, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -456,7 +461,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         logSection("Create Job Certificate Schema");
         
         // Government creates the Job-Certificate Credential Schema and sends it to the Ledger
-        // It can do so with it's Endorser role
+        // It can do so with it's Trustee role
 
         // Create client for sub wallet
         AriesClient client = createClient(ctx.getWallet(Government));
@@ -477,9 +482,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         // 1. Faber get the Transcript Credential Schema
 
-        // Create client for sub wallet
         AriesClient faber = createClient(ctx.getWallet(Faber));
-
         Schema schema = faber.schemasGetById(ctx.getAttachment(TranscriptSchemaId)).get();
         log.info("{}", schema);
 
@@ -500,9 +503,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         // 1. Acme get the Transcript Credential Schema
 
-        // Create client for sub wallet
         AriesClient acme = createClient(ctx.getWallet(Acme));
-
         Schema schema = acme.schemasGetById(ctx.getAttachment(JobCertificateSchemaId)).get();
         log.info("{}", schema);
 
@@ -530,33 +531,13 @@ public class GettingStartedTest extends AbstractAriesTest {
                 .build()).get();
         log.info("{}", revregRecord);
         
-        ctx.putAttachment(JobCertificateRevocationRegistryId, revregRecord.getRevocRegId());
-        
-        // 4. Acme creates a Revocation Registry for the given Credential Definition.
-
-//        String revRegDefTag = "Tag2";
-//        String revRegDefConfig = new JSONObject().put("issuance_type", "ISSUANCE_ON_DEMAND").put("max_cred_num", 5).toString();
-//        IssuerCreateAndStoreRevocRegResult createRevRegResult = Anoncreds.issuerCreateAndStoreRevocReg(ctx.acmeWallet, ctx.acmeDid, null, revRegDefTag, ctx.jobCertificateCredDefId, revRegDefConfig, tailsWriter).get();
-//        String revRegEntryJson = createRevRegResult.getRevRegEntryJson();
-//        String revRegDefJson = createRevRegResult.getRevRegDefJson();
-//        ctx.revocRegistryId = createRevRegResult.getRevRegId();
-
-        // 5. Acme creates and submits the Revocation Registry Definition
-
-//        String revRegDefRequest = Ledger.buildRevocRegDefRequest(ctx.acmeDid, revRegDefJson).get();
-//        String revRegDefResponse = signAndSubmitRequest(ctx, ctx.acmeWallet, ctx.acmeDid, revRegDefRequest);
-//        log.info(revRegDefResponse);
-
-        // 6. Acme creates and submits the Revocation Registry Entry
-
-//        String revRegEntryRequest = Ledger.buildRevocRegEntryRequest(ctx.acmeDid, ctx.revocRegistryId, "CL_ACCUM", revRegEntryJson).get();
-//        String revRegEntryResponse = signAndSubmitRequest(ctx, ctx.acmeWallet, ctx.acmeDid, revRegEntryRequest);
-//        log.info(revRegEntryResponse);
+        String revocRegistryId = revregRecord.getRevocRegId();
+        ctx.putAttachment(JobCertificateRevocationRegistryId, revocRegistryId);
     }
 
-    void connectPeers(Context ctx, String peerA, String peerB) throws Exception {
+    void connectPeers(Context ctx, String inviter, String invitee) throws Exception {
         
-        logSection(String.format("Connect %s to %s", peerA, peerB));
+        logSection(String.format("Connect %s to %s", invitee, inviter));
         
         CountDownLatch peerConnectionLatch = new CountDownLatch(2);
         
@@ -571,20 +552,20 @@ public class GettingStartedTest extends AbstractAriesTest {
             }
         };
         
-        WalletRecord walletA = ctx.getWallet(peerA);
-        WalletRecord walletB = ctx.getWallet(peerB);
+        WalletRecord inviterWallet = ctx.getWallet(inviter);
+        WalletRecord inviteeWallet = ctx.getWallet(invitee);
         
-        WebSocketEventHandler eventHandlerA = WebSockets.getEventHandler(ctx.getWebSocket(peerA));
-        EventSubscriber<WebSocketEvent> aliceSubscriber = eventHandlerA.subscribe(walletB.getWalletId(), ConnectionRecord.class, eventConsumer);
+        WebSocketEventHandler inviterHandler = WebSockets.getEventHandler(ctx.getWebSocket(inviter));
+        EventSubscriber<WebSocketEvent> inviterSubscriber = inviterHandler.subscribe(inviteeWallet.getWalletId(), ConnectionRecord.class, eventConsumer);
         
-        WebSocketEventHandler eventHandlerB = WebSockets.getEventHandler(ctx.getWebSocket(peerB));
-        EventSubscriber<WebSocketEvent> faberSubscriber = eventHandlerB.subscribe(walletA.getWalletId(), ConnectionRecord.class, eventConsumer);
+        WebSocketEventHandler inviteeHandler = WebSockets.getEventHandler(ctx.getWebSocket(invitee));
+        EventSubscriber<WebSocketEvent> inviteeubscriber = inviteeHandler.subscribe(inviterWallet.getWalletId(), ConnectionRecord.class, eventConsumer);
         
-        AriesClient clientA = createClient(walletA);
-        AriesClient clientB = createClient(walletB);
+        AriesClient inviterClient = createClient(inviterWallet);
+        AriesClient inviteeClient = createClient(inviteeWallet);
         
         // Inviter creates an invitation (/connections/create-invitation)
-        CreateInvitationResponse response = clientB.connectionsCreateInvitation(
+        CreateInvitationResponse response = inviterClient.connectionsCreateInvitation(
                 CreateInvitationRequest.builder().build(), 
                 CreateInvitationParams.builder()
                     .autoAccept(true)
@@ -592,7 +573,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         ConnectionInvitation invitation = response.getInvitation();
         
         // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
-        clientA.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+        inviteeClient.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
                 .recipientKeys(invitation.getRecipientKeys())
                 .serviceEndpoint(invitation.getServiceEndpoint())
                 .build(), ConnectionReceiveInvitationFilter.builder()
@@ -601,8 +582,8 @@ public class GettingStartedTest extends AbstractAriesTest {
 
         Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
         
-        faberSubscriber.cancelSubscription();
-        aliceSubscriber.cancelSubscription();
+        inviterSubscriber.cancelSubscription();
+        inviteeubscriber.cancelSubscription();
     }
 
     void getTranscriptFromFaber(Context ctx) throws Exception {
@@ -611,14 +592,15 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         WalletRecord faberWallet = ctx.getWallet(Faber);
         String faberWalletId = faberWallet.getWalletId();
-        String faberAliceConnectionId = ctx.getConnection(Faber,  Alice).getConnectionId();
+        String faberAliceConnectionId = ctx.getConnection(Faber, Alice).getConnectionId();
         AriesClient faber = createClient(faberWallet);
         
         WalletRecord aliceWallet = ctx.getWallet(Alice);
         String aliceWalletId = aliceWallet.getWalletId();
         AriesClient alice = createClient(aliceWallet);
 
-        V1CredentialExchange[] credex = new V1CredentialExchange[1];
+        V1CredentialExchange[] issuerCredEx = new V1CredentialExchange[1];
+        V1CredentialExchange[] holderCredEx = new V1CredentialExchange[1];
         CountDownLatch holderOfferReceived = new CountDownLatch(1);
         CountDownLatch issuerRequestReceived = new CountDownLatch(1);
         CountDownLatch holderCredentialReceived = new CountDownLatch(1);
@@ -629,7 +611,7 @@ public class GettingStartedTest extends AbstractAriesTest {
             V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
             if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
-                credex[0] = cex;
+                issuerCredEx[0] = cex;
                 issuerRequestReceived.countDown();
             }
         });
@@ -639,15 +621,15 @@ public class GettingStartedTest extends AbstractAriesTest {
             V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
             if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
-                credex[0] = cex;
+                holderCredEx[0] = cex;
                 holderOfferReceived.countDown();
             }
             else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_RECEIVED == cex.getState()) {
-                credex[0] = cex;
+                holderCredEx[0] = cex;
                 holderCredentialReceived.countDown();
             }
             else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_ACKED == cex.getState()) {
-                credex[0] = cex;
+                holderCredEx[0] = cex;
                 holderCredentialAcked.countDown();
             }
         });
@@ -677,7 +659,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         Assertions.assertTrue(holderOfferReceived.await(10, TimeUnit.SECONDS), "No HOLDER OFFER_RECEIVED");
         
-        CredentialProposal credentialProposal = credex[0].getCredentialProposalDict().getCredentialProposal();
+        CredentialProposal credentialProposal = holderCredEx[0].getCredentialProposalDict().getCredentialProposal();
         CredentialProposalHelper credentialHelper = new CredentialProposalHelper(credentialProposal);
         Assertions.assertEquals("Alice", credentialHelper.getAttributeValue("first_name"));
         Assertions.assertEquals("Garcia", credentialHelper.getAttributeValue("last_name"));
@@ -688,7 +670,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * 
          */
         
-        alice.issueCredentialRecordsSendRequest(credex[0].getCredentialExchangeId()).get();
+        alice.issueCredentialRecordsSendRequest(holderCredEx[0].getCredentialExchangeId()).get();
         
         /* 4. Faber receives the Transcript Credential Request
          * 
@@ -700,7 +682,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * 
          */
 
-        faber.issueCredentialRecordsIssue(credex[0].getCredentialExchangeId(), V1CredentialIssueRequest.builder().build()).get();
+        faber.issueCredentialRecordsIssue(issuerCredEx[0].getCredentialExchangeId(), V1CredentialIssueRequest.builder().build()).get();
         
         /* 6. Alice receives the Transcript Credential
          * 
@@ -712,8 +694,8 @@ public class GettingStartedTest extends AbstractAriesTest {
          * 
          */
 
-        alice.issueCredentialRecordsStore(credex[0].getCredentialExchangeId(), V1CredentialStoreRequest.builder()
-                .credentialId(credex[0].getCredentialId())
+        alice.issueCredentialRecordsStore(holderCredEx[0].getCredentialExchangeId(), V1CredentialStoreRequest.builder()
+                .credentialId(holderCredEx[0].getCredentialId())
                 .build()).get();
 
         Assertions.assertTrue(holderCredentialAcked.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_ACKED");
@@ -776,7 +758,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          */
         
         String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId);
-        String acmeAliceConnectionId = ctx.getConnection(Acme,  Alice).getConnectionId();
+        String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
         
         Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
         Function<String, ProofRequestedAttributes> proofReqAttr = name -> ProofRequestedAttributes.builder().name(name).build();
@@ -878,7 +860,121 @@ public class GettingStartedTest extends AbstractAriesTest {
         aliceSubscriber.cancelSubscription();
     }
 
-    void getEmploymentWithAcme(Context ctx) throws Exception {
+    void getJobWithAcme(Context ctx) throws Exception {
+
+        logSection("Alice gets JobCertificate from Acme");
+        
+        WalletRecord acmeWallet = ctx.getWallet(Acme);
+        String acmeWalletId = acmeWallet.getWalletId();
+        String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
+        AriesClient acme = createClient(acmeWallet);
+        
+        WalletRecord aliceWallet = ctx.getWallet(Alice);
+        String aliceWalletId = aliceWallet.getWalletId();
+        AriesClient alice = createClient(aliceWallet);
+
+        V1CredentialExchange[] issuerCredEx = new V1CredentialExchange[1];
+        V1CredentialExchange[] holderCredEx = new V1CredentialExchange[1];
+        CountDownLatch holderOfferReceived = new CountDownLatch(1);
+        CountDownLatch issuerRequestReceived = new CountDownLatch(1);
+        CountDownLatch holderCredentialReceived = new CountDownLatch(1);
+        CountDownLatch holderCredentialAcked = new CountDownLatch(1);
+        
+        WebSocketEventHandler acmeHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
+        EventSubscriber<WebSocketEvent> acmeSubscriber = acmeHandler.subscribe(acmeWalletId, V1CredentialExchange.class, ev -> { 
+            V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
+            if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
+                issuerCredEx[0] = cex;
+                issuerRequestReceived.countDown();
+            }
+        });
+        
+        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, V1CredentialExchange.class, ev -> { 
+            V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
+            if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
+                holderCredEx[0] = cex;
+                holderOfferReceived.countDown();
+            }
+            else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_RECEIVED == cex.getState()) {
+                holderCredEx[0] = cex;
+                holderCredentialReceived.countDown();
+            }
+            else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_ACKED == cex.getState()) {
+                holderCredEx[0] = cex;
+                holderCredentialAcked.countDown();
+            }
+        });
+
+        /* 1. Acme sends the JobCertificate Credential Offer
+         * 
+         * The value of this JobCertificate Credential is that it 
+         * is verifiably proves that the holder is employed by Acme
+         */
+        
+        String transcriptCredDefId = ctx.getAttachment(JobCertificateCredDefId);
+        acme.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
+                .connectionId(acmeAliceConnectionId)
+                .credentialDefinitionId(transcriptCredDefId)
+                .credentialPreview(new CredentialPreview(CredentialAttributes.from(Map.of(
+                        "first_name", "Alice", 
+                        "last_name", "Garcia", 
+                        "employee_status", "Permanent", 
+                        "experience", "10", 
+                        "salary", "2400"))))
+                .build()).get();
+        
+        /* 2. Alice inspects the the JobCertificate Credential Offer
+         * 
+         */
+        
+        Assertions.assertTrue(holderOfferReceived.await(10, TimeUnit.SECONDS), "No HOLDER OFFER_RECEIVED");
+        
+        CredentialProposal credentialProposal = holderCredEx[0].getCredentialProposalDict().getCredentialProposal();
+        CredentialProposalHelper credentialHelper = new CredentialProposalHelper(credentialProposal);
+        Assertions.assertEquals("Alice", credentialHelper.getAttributeValue("first_name"));
+        Assertions.assertEquals("Garcia", credentialHelper.getAttributeValue("last_name"));
+        Assertions.assertEquals("Permanent", credentialHelper.getAttributeValue("employee_status"));
+        Assertions.assertEquals("2400", credentialHelper.getAttributeValue("salary"));
+        
+        /* 3. Alice sends the JobCertificate Credential Request
+         * 
+         */
+        
+        alice.issueCredentialRecordsSendRequest(holderCredEx[0].getCredentialExchangeId()).get();
+        
+        /* 4. Acme receives the JobCertificate Credential Request
+         * 
+         */
+
+        Assertions.assertTrue(issuerRequestReceived.await(10, TimeUnit.SECONDS), "No ISSUER REQUEST_RECEIVED");
+        
+        /* 5. Acme issues the JobCertificate Credential
+         * 
+         */
+
+        acme.issueCredentialRecordsIssue(issuerCredEx[0].getCredentialExchangeId(), V1CredentialIssueRequest.builder().build()).get();
+        
+        /* 6. Alice receives the Transcript Credential
+         * 
+         */
+
+        Assertions.assertTrue(holderCredentialReceived.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_RECEIVED");
+        
+        /* 7. Alice stores the Transcript Credential
+         * 
+         */
+
+        alice.issueCredentialRecordsStore(holderCredEx[0].getCredentialExchangeId(), V1CredentialStoreRequest.builder()
+                .credentialId(holderCredEx[0].getCredentialId())
+                .build()).get();
+
+        Assertions.assertTrue(holderCredentialAcked.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_ACKED");
+        
+        acmeSubscriber.cancelSubscription();
+        aliceSubscriber.cancelSubscription();
     }
 
     void closeAndDeleteWallets(Context ctx) throws Exception {
