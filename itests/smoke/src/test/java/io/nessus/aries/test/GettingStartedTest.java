@@ -1116,87 +1116,126 @@ public class GettingStartedTest extends AbstractAriesTest {
 
     void kycProcessWithThrift(Context ctx) throws Exception {
 
-        // 1. Alice gets a second Proof Request from Thrift Bank
+        logSection("Alice goes through the KYC process with Thrift");
         
-//        String nonce = Anoncreds.generateNonce().get();
-//        String proofRequestJson = new JSONObject()
-//                .put("nonce", nonce)
-//                .put("name", "Loan-Application-KYC")
-//                .put("version", "0.1")
-//                .put("requested_attributes", new JSONObject()
-//                    .put("attr1_referent", new JSONObject().put("name", "first_name"))
-//                    .put("attr2_referent", new JSONObject().put("name", "last_name"))
-//                    .put("attr3_referent", new JSONObject().put("name", "ssn")))
-//                .put("requested_predicates", new JSONObject())
-//                .toString();
-//            
-//        log.info("Loan-Application-KYC Proof Request: " + proofRequestJson);
+        WalletRecord thriftWallet = ctx.getWallet(Thrift);
+        String thriftWalletId = thriftWallet.getWalletId();
+        AriesClient thrift = createClient(thriftWallet);
         
-        // 2. Alice searches her Wallet for Credentials that she can use for creating a Proof for the Loan-Application-KYC Proof Request
+        WalletRecord aliceWallet = ctx.getWallet(Alice);
+        String aliceWalletId = aliceWallet.getWalletId();
+        AriesClient alice = createClient(aliceWallet);
         
-//        CredentialsSearchForProofReq credentialsSearch = CredentialsSearchForProofReq.open(ctx.aliceWallet, proofRequestJson, null).get();
-//        
-//        JSONArray credentialsForAttribute1 = new JSONArray(credentialsSearch.fetchNextCredentials("attr1_referent", 100).get());
-//        String credentialIdForAttribute1 = credentialsForAttribute1.getJSONObject(0).getJSONObject("cred_info").getString("referent");
-//
-//        JSONArray credentialsForAttribute2 = new JSONArray(credentialsSearch.fetchNextCredentials("attr2_referent", 100).get());
-//        String credentialIdForAttribute2 = credentialsForAttribute2.getJSONObject(0).getJSONObject("cred_info").getString("referent");
-//
-//        JSONArray credentialsForAttribute3 = new JSONArray(credentialsSearch.fetchNextCredentials("attr3_referent", 100).get());
-//        String credentialIdForAttribute3 = credentialsForAttribute3.getJSONObject(0).getJSONObject("cred_info").getString("referent");
-//        
-//        credentialsSearch.close();
+        PresentationExchangeRecord[] proverExchangeRecord = new PresentationExchangeRecord[1];
+        PresentationExchangeRecord[] verifierExchangeRecord = new PresentationExchangeRecord[1];
+        CountDownLatch proverRequestReceived = new CountDownLatch(1);
+        CountDownLatch verifierPresentationReceived = new CountDownLatch(1);
+        CountDownLatch proverPresentationAcked = new CountDownLatch(1);
+        
+        WebSocketEventHandler thriftHandler = WebSockets.getEventHandler(ctx.getWebSocket(Thrift));
+        EventSubscriber<WebSocketEvent> thriftSubscriber = thriftHandler.subscribe(thriftWalletId, PresentationExchangeRecord.class, ev -> { 
+            PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
+            log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
+            if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.PRESENTATION_RECEIVED == pex.getState()) {
+                verifierExchangeRecord[0] = pex;
+                verifierPresentationReceived.countDown();
+            }
+        });
+        
+        WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, PresentationExchangeRecord.class, ev -> { 
+            PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
+            log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
+            if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.REQUEST_RECEIVED == pex.getState()) {
+                proverExchangeRecord[0] = pex;
+                proverRequestReceived.countDown();
+            }
+            if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.PRESENTATION_ACKED == pex.getState()) {
+                proverExchangeRecord[0] = pex;
+                proverPresentationAcked.countDown();
+            }
+        });
+       
+        /* 1. Alice gets a second Proof Request from Thrift Bank
+         * 
+         */
+        
+        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId);
+        String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
+        
+        Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
+        BiFunction<String, String, ProofRequestedAttributes> restrictedProofReqAttr = (name, cdid) -> ProofRequestedAttributes.builder()
+                .name(name)
+                .restriction(credDefRestriction.apply(cdid))
+                .build();
+        
+        thrift.presentProofSendRequest(PresentProofRequest.builder()
+                .connectionId(thriftAliceConnectionId)
+                .proofRequest(ProofRequest.builder()
+                        .name("KYC-Application")
+                        .nonce("1")
+                        .requestedAttribute("attr1_referent", restrictedProofReqAttr.apply("first_name", transcriptCredDefId))
+                        .requestedAttribute("attr2_referent", restrictedProofReqAttr.apply("last_name", transcriptCredDefId))
+                        .requestedAttribute("attr3_referent", restrictedProofReqAttr.apply("ssn", transcriptCredDefId))
+                        .build())
+                .build()).get();
+        
+        Assertions.assertTrue(proverRequestReceived.await(10, TimeUnit.SECONDS), "No PROVER REQUEST_RECEIVED");
+        
+        // 2. Alice searches her Wallet for Credentials that she can use for the creating of Proof for the KYC Proof Request
+        
+        Map<String, String> referentMapping = new HashMap<>();
+        String presentationExchangeId = proverExchangeRecord[0].getPresentationExchangeId();
+        alice.presentProofRecordsCredentials(presentationExchangeId).get().stream()
+            .forEach(cred -> {
+                List<String> presentationReferents = cred.getPresentationReferents();
+                CredentialInfo credInfo = cred.getCredentialInfo();
+                String credDefId = credInfo.getCredentialDefinitionId();
+                Map<String, String> attributes = credInfo.getAttrs();
+                String referent = credInfo.getReferent();
+                log.debug("{}", cred); 
+                log.debug("+- CredDefId: {}", credDefId); 
+                log.debug("+- PresentationReferents: {}", presentationReferents); 
+                log.debug("+- Attributes: {}", attributes); 
+                log.debug("+- Referent: {}", referent); 
+                
+                // Map attribute referents to their respective credential referent
+                presentationReferents.stream().forEach(pr -> referentMapping.put(pr, referent));
+            });
 
-        // 3. Alice gets the Credential Schema and correspoding Credential Definition
+        /* 3. Alice provides KYC-Application Proof
+         * 
+         * Alice divides these attributes into the three groups:
+         * 
+         * - attributes values of which will be revealed
+         * - attributes values of which will be unrevealed
+         * - attributes for which creating of verifiable proof is not required
+         */
         
-//        JSONObject schemasMap = new JSONObject();
-//        JSONObject credDefsMap = new JSONObject();
-//        
-//        populateCredentialInfo(ctx.pool, ctx.aliceDidForThrift, schemasMap, credDefsMap, credentialsForAttribute1);
-//        populateCredentialInfo(ctx.pool, ctx.aliceDidForThrift, schemasMap, credDefsMap, credentialsForAttribute2);
-//        populateCredentialInfo(ctx.pool, ctx.aliceDidForThrift, schemasMap, credDefsMap, credentialsForAttribute3);
-//        
-//        String schemas = schemasMap.toString();
-//        String credDefs = credDefsMap.toString();
-//        String revocState = new JSONObject().toString();
-
-        // 4. Alice provides Loan-Application-KYC Proof
+        BiFunction<String, Boolean, Map<String, IndyRequestedCredsRequestedAttr>> indyRequestedAttr = (ref, reveal) -> Map.of(ref, IndyRequestedCredsRequestedAttr.builder()
+                .credId(referentMapping.get(ref))
+                .revealed(reveal)
+                .build());
         
-//        String credentialsJson = new JSONObject()
-//            .put("self_attested_attributes", new JSONObject())
-//            .put("requested_attributes", new JSONObject()
-//                .put("attr1_referent", new JSONObject()
-//                    .put("cred_id", credentialIdForAttribute1)
-//                    .put("revealed", true))
-//                .put("attr2_referent", new JSONObject()
-//                    .put("cred_id", credentialIdForAttribute2)
-//                    .put("revealed", true))
-//                .put("attr3_referent", new JSONObject()
-//                    .put("cred_id", credentialIdForAttribute3)
-//                    .put("revealed", true)))
-//            .put("requested_predicates", new JSONObject())
-//            .toString();
+        alice.presentProofRecordsSendPresentation(presentationExchangeId, PresentationRequest.builder()
+                .requestedAttributes(indyRequestedAttr.apply("attr1_referent", true))
+                .requestedAttributes(indyRequestedAttr.apply("attr2_referent", true))
+                .requestedAttributes(indyRequestedAttr.apply("attr3_referent", true))
+                .build());
 
-        // 5. Alice creates the Proof for Thrift Loan-Application-KYC Proof Request
-
-//        String proofJson = Anoncreds.proverCreateProof(ctx.aliceWallet, proofRequestJson, credentialsJson, ctx.aliceMasterSecretId, schemas, credDefs, revocState).get();
-//        JSONObject proof = new JSONObject(proofJson);
-//        log.info("Proof: " + proof);
-
-        // 6. Thrift verifies the Proof
+        Assertions.assertTrue(verifierPresentationReceived.await(10, TimeUnit.SECONDS), "No VERIFIER PRESENTATION_RECEIVED");
         
-//        JSONObject revealedAttrs = proof.getJSONObject("requested_proof").getJSONObject("revealed_attrs");
-//        log.info("RevealedAttrs: " + revealedAttrs);
-//        
-//        assertEquals("Alice", revealedAttrs.getJSONObject("attr1_referent").getString("raw"));
-//        assertEquals("Garcia", revealedAttrs.getJSONObject("attr2_referent").getString("raw"));
-//        assertEquals("123-45-6789", revealedAttrs.getJSONObject("attr3_referent").getString("raw"));
-//        
-//        String revocRegDefs = new JSONObject().toString();
-//        String revocRegs = new JSONObject().toString();
-//        
-//        Boolean accepted = Anoncreds.verifierVerifyProof(proofRequestJson, proofJson, schemas, credDefs, revocRegDefs, revocRegs).get();
-//        assertTrue(accepted);
+        /* 4. Thrift verifies the KYC-Application Proof from Alice
+         * 
+         */
+        
+        presentationExchangeId = verifierExchangeRecord[0].getPresentationExchangeId();
+        thrift.presentProofRecordsVerifyPresentation(presentationExchangeId).get();
+        
+        Assertions.assertTrue(proverPresentationAcked.await(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+
+        thriftSubscriber.cancelSubscription();
+        aliceSubscriber.cancelSubscription();
     }
 
     void quitJobWithAcme(Context ctx) throws Exception {
