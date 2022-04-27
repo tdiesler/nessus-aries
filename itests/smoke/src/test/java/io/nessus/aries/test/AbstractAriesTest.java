@@ -2,15 +2,12 @@ package io.nessus.aries.test;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.acy_py.generated.model.DIDCreate;
 import org.hyperledger.acy_py.generated.model.DIDEndpoint;
 import org.hyperledger.acy_py.generated.model.RegisterLedgerNymResponse;
 import org.hyperledger.aries.AriesClient;
-import org.hyperledger.aries.api.connection.ConnectionRecord;
-import org.hyperledger.aries.api.connection.ConnectionState;
 import org.hyperledger.aries.api.ledger.IndyLedgerRoles;
 import org.hyperledger.aries.api.ledger.RegisterNymFilter;
 import org.hyperledger.aries.api.multitenancy.CreateWalletRequest;
@@ -19,7 +16,6 @@ import org.hyperledger.aries.api.multitenancy.WalletDispatchType;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.api.multitenancy.WalletType;
 import org.hyperledger.aries.config.GsonConfig;
-import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,24 +62,6 @@ public abstract class AbstractAriesTest {
             .registerWithSeed(alias, seed, role);
     }
 
-    public ConnectionRecord getConnectionRecord(WalletRecord wallet) throws IOException {
-        String walletName = wallet.getSettings().getWalletName();
-        AriesClient client = createClient(wallet);
-        List<ConnectionRecord> records = client.connections().get();
-        Assertions.assertEquals(1, records.size(), walletName + ": Unexpected number of connection records");
-        return records.get(0);
-    }
-    
-    public ConnectionRecord assertConnectionState(WalletRecord wallet, ConnectionState targetState) throws IOException {
-        String walletName = wallet.getSettings().getWalletName();
-        ConnectionRecord rec = getConnectionRecord(wallet);
-        String id = rec.getConnectionId();
-        ConnectionState state = rec.getState();
-        log.info("{}: cid={} state={} - {}", walletName, id, state, rec);
-        Assertions.assertEquals(targetState, state, walletName + ": Unexpected connection state");
-        return rec;
-    }
-    
     public void closeWebSocket(WebSocket wsocket) {
         if (wsocket != null) {
             WebSockets.closeWebSocket(wsocket);
