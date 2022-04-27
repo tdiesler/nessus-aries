@@ -65,14 +65,14 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
         SafeConsumer<WebSocketEvent> consumer = ev -> {
 
             // Handle the Settings event
-            if (EventType.SETTINGS.valueEquals(ev.getTopic())) {
+            if (EventType.SETTINGS.topicEquals(ev.getTopic())) {
                 Settings settings = ev.getPayload(Settings.class);
                 log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), settings);
                 settingsHolder[0] = settings;
             }
             
             // Handle Connection events
-            if (EventType.CONNECTIONS.valueEquals(ev.getTopic())) {
+            if (EventType.CONNECTIONS.topicEquals(ev.getTopic())) {
                 ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
                 log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), con.getTheirRole(), con.getState(), con);
                 connections.put(ev.getTheirWalletId(), con);

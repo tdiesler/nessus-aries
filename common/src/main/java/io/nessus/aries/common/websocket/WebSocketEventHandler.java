@@ -109,35 +109,35 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
     public void handleEvent(String theirWalletId, String topic, String payload) {
         try {
             Object value;
-            if (EventType.CONNECTIONS.valueEquals(topic)) {
+            if (EventType.CONNECTIONS.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, ConnectionRecord.class).orElseThrow();
-            } else if (EventType.PRESENT_PROOF.valueEquals(topic)) {
+            } else if (EventType.PRESENT_PROOF.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, PresentationExchangeRecord.class).orElseThrow();
-            } else if (EventType.PRESENT_PROOF_V2.valueEquals(topic)) {
+            } else if (EventType.PRESENT_PROOF_V2.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, V20PresExRecord.class).orElseThrow();
-            } else if (EventType.ISSUE_CREDENTIAL.valueEquals(topic)) {
+            } else if (EventType.ISSUE_CREDENTIAL.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, V1CredentialExchange.class).orElseThrow();
-            } else if (EventType.ISSUE_CREDENTIAL_V2.valueEquals(topic)) {
+            } else if (EventType.ISSUE_CREDENTIAL_V2.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, V20CredExRecord.class).orElseThrow();
-            } else if (EventType.ISSUE_CREDENTIAL_V2_INDY.valueEquals(topic)) {
+            } else if (EventType.ISSUE_CREDENTIAL_V2_INDY.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, V2IssueIndyCredentialEvent.class).orElseThrow();
-            } else if (EventType.ISSUE_CREDENTIAL_V2_LD_PROOF.valueEquals(topic)) {
+            } else if (EventType.ISSUE_CREDENTIAL_V2_LD_PROOF.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, V2IssueLDCredentialEvent.class).orElseThrow();
-            } else if (EventType.BASIC_MESSAGES.valueEquals(topic)) {
+            } else if (EventType.BASIC_MESSAGES.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, BasicMessage.class).orElseThrow();
-            } else if (EventType.PING.valueEquals(topic)) {
+            } else if (EventType.PING.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, PingEvent.class).orElseThrow();
-            } else if (EventType.ISSUER_CRED_REV.valueEquals(topic)) {
+            } else if (EventType.ISSUER_CRED_REV.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, RevocationEvent.class).orElseThrow();
-            } else if (EventType.ENDORSE_TRANSACTION.valueEquals(topic)) {
+            } else if (EventType.ENDORSE_TRANSACTION.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, EndorseTransactionRecord.class).orElseThrow();
-            } else if (EventType.PROBLEM_REPORT.valueEquals(topic)) {
+            } else if (EventType.PROBLEM_REPORT.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, ProblemReport.class).orElseThrow();
-            } else if (EventType.DISCOVER_FEATURE.valueEquals(topic)) {
+            } else if (EventType.DISCOVER_FEATURE.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, DiscoverFeatureEvent.class).orElseThrow();
-            } else if (EventType.REVOCATION_NOTIFICATION.valueEquals(topic)) {
+            } else if (EventType.REVOCATION_NOTIFICATION.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, RevocationNotificationEvent.class).orElseThrow();
-            } else if (EventType.SETTINGS.valueEquals(topic)) {
+            } else if (EventType.SETTINGS.topicEquals(topic)) {
                 value = parser.parseValueSave(payload, Settings.class).orElseThrow();
             } else {
                 log.warn("Unsupported event topic: {}", topic);

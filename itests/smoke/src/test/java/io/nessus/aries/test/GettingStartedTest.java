@@ -69,14 +69,9 @@ import okhttp3.WebSocket;
 
 /**
  * The Ledger is externally provided by a running instance of the VON-Network
+ * The Agent is Aries Cloudagent Python
  * 
- * git clone https://github.com/bcgov/von-network 
- * cd von-network
- * 
- * ./manage build 
- * ./manage up --logs
- * 
- * We run a multi tenant Aries Coudagent
+ * docker-compose up --detach && docker-compose logs -f acapy
  */
 public class GettingStartedTest extends AbstractAriesTest {
 
@@ -195,7 +190,7 @@ public class GettingStartedTest extends AbstractAriesTest {
 
         onboardFaberCollege(ctx);
         onboardAcmeCorp(ctx);
-        //onboardThriftBank(ctx);
+        onboardThriftBank(ctx);
         onboardAlice(ctx);
 
         /*
@@ -305,6 +300,15 @@ public class GettingStartedTest extends AbstractAriesTest {
          */
         
         getJobWithAcme(ctx); 
+
+        /*
+         * Create a peer connection between Alice/Faber
+         * 
+         * Alice does not connect to Faber's public DID, Alice does not even have a public DID
+         * Instead both parties create new DIDs that they use for their peer connection 
+         */
+         
+         connectPeers(ctx, Thrift, Alice);
 
         /*
          * Alice applies for a loan with Thrift Bank
@@ -978,10 +982,10 @@ public class GettingStartedTest extends AbstractAriesTest {
     }
 
     void closeAndDeleteWallets(Context ctx) throws Exception {
-        
         logSection("Remove Wallets");
-        
-        for (String name : Arrays.asList(Government, Faber, Acme, Thrift, Alice))
+        for (String name : Arrays.asList(Government, Faber, Acme, Thrift, Alice)) {
+            closeWebSocket(ctx.getWebSocket(name));
             removeWallet(ctx.getWallet(name));
+        }
     }
 }

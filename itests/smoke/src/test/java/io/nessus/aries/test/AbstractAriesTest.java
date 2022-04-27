@@ -29,7 +29,9 @@ import io.nessus.aries.common.Configuration;
 import io.nessus.aries.common.HttpClient;
 import io.nessus.aries.common.SelfRegistrationHandler;
 import io.nessus.aries.common.WalletRegistry;
+import io.nessus.aries.common.websocket.WebSockets;
 import okhttp3.OkHttpClient;
+import okhttp3.WebSocket;
 
 public abstract class AbstractAriesTest {
 
@@ -80,6 +82,12 @@ public abstract class AbstractAriesTest {
         log.info("{}: cid={} state={} - {}", walletName, id, state, rec);
         Assertions.assertEquals(targetState, state, walletName + ": Unexpected connection state");
         return rec;
+    }
+    
+    public void closeWebSocket(WebSocket wsocket) {
+        if (wsocket != null) {
+            WebSockets.closeWebSocket(wsocket);
+        }
     }
     
     public void removeWallet(WalletRecord wallet) throws IOException {
