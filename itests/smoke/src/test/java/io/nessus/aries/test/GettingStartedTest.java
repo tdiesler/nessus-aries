@@ -51,7 +51,6 @@ import org.hyperledger.aries.api.revocation.RevokeRequest;
 import org.hyperledger.aries.api.schema.SchemaSendRequest;
 import org.hyperledger.aries.api.schema.SchemaSendResponse;
 import org.hyperledger.aries.api.schema.SchemaSendResponse.Schema;
-import org.hyperledger.aries.webhook.EventType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -59,8 +58,8 @@ import com.google.gson.JsonObject;
 
 import io.nessus.aries.coms.EventSubscriber;
 import io.nessus.aries.coms.WebSocketEventHandler;
-import io.nessus.aries.coms.WebSockets;
 import io.nessus.aries.coms.WebSocketEventHandler.WebSocketEvent;
+import io.nessus.aries.coms.WebSockets;
 import io.nessus.aries.util.AttachmentKey;
 import io.nessus.aries.util.AttachmentSupport;
 import io.nessus.aries.wallet.ConnectionHelper;
@@ -357,9 +356,8 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -379,9 +377,8 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -401,9 +398,8 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -423,9 +419,8 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient client = createClient(wallet);
         DID publicDid = client.walletDidPublic().get();
 
-        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -440,9 +435,8 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         WalletRecord wallet = new WalletBuilder(Alice).build();
         
-        String walletId = wallet.getWalletId();
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(walletId, null, ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -567,12 +561,10 @@ public class GettingStartedTest extends AbstractAriesTest {
         logSection("Alice gets Transcript from Faber");
         
         WalletRecord faberWallet = ctx.getWallet(Faber);
-        String faberWalletId = faberWallet.getWalletId();
         String faberAliceConnectionId = ctx.getConnection(Faber, Alice).getConnectionId();
         AriesClient faber = createClient(faberWallet);
         
         WalletRecord aliceWallet = ctx.getWallet(Alice);
-        String aliceWalletId = aliceWallet.getWalletId();
         AriesClient alice = createClient(aliceWallet);
 
         V1CredentialExchange[] issuerCredEx = new V1CredentialExchange[1];
@@ -583,7 +575,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         CountDownLatch holderCredentialAcked = new CountDownLatch(1);
         
         WebSocketEventHandler faberHandler = WebSockets.getEventHandler(ctx.getWebSocket(Faber));
-        EventSubscriber<WebSocketEvent> faberSubscriber = faberHandler.subscribe(faberWalletId, V1CredentialExchange.class, ev -> { 
+        EventSubscriber<WebSocketEvent> faberSubscriber = faberHandler.subscribe(V1CredentialExchange.class, ev -> { 
             V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
             if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
@@ -593,7 +585,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         });
         
         WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
-        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, V1CredentialExchange.class, ev -> { 
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(V1CredentialExchange.class, ev -> { 
             V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
             if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
@@ -685,11 +677,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         logSection("Alice applies for a Job with Acme");
         
         WalletRecord acmeWallet = ctx.getWallet(Acme);
-        String acmeWalletId = acmeWallet.getWalletId();
         AriesClient acme = createClient(acmeWallet);
         
         WalletRecord aliceWallet = ctx.getWallet(Alice);
-        String aliceWalletId = aliceWallet.getWalletId();
         AriesClient alice = createClient(aliceWallet);
         
         PresentationExchangeRecord[] proverExchangeRecord = new PresentationExchangeRecord[1];
@@ -699,7 +689,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         CountDownLatch proverPresentationAcked = new CountDownLatch(1);
         
         WebSocketEventHandler acmeHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
-        EventSubscriber<WebSocketEvent> acmeSubscriber = acmeHandler.subscribe(acmeWalletId, PresentationExchangeRecord.class, ev -> { 
+        EventSubscriber<WebSocketEvent> acmeSubscriber = acmeHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
             PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
             log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
             if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.PRESENTATION_RECEIVED == pex.getState()) {
@@ -709,7 +699,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         });
         
         WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
-        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, PresentationExchangeRecord.class, ev -> { 
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
             PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
             log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
             if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.REQUEST_RECEIVED == pex.getState()) {
@@ -835,12 +825,10 @@ public class GettingStartedTest extends AbstractAriesTest {
         logSection("Alice gets JobCertificate from Acme");
         
         WalletRecord acmeWallet = ctx.getWallet(Acme);
-        String acmeWalletId = acmeWallet.getWalletId();
         String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
         AriesClient acme = createClient(acmeWallet);
         
         WalletRecord aliceWallet = ctx.getWallet(Alice);
-        String aliceWalletId = aliceWallet.getWalletId();
         AriesClient alice = createClient(aliceWallet);
 
         V1CredentialExchange[] issuerCredEx = new V1CredentialExchange[1];
@@ -851,7 +839,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         CountDownLatch holderCredentialAcked = new CountDownLatch(1);
         
         WebSocketEventHandler acmeHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
-        EventSubscriber<WebSocketEvent> acmeSubscriber = acmeHandler.subscribe(acmeWalletId, V1CredentialExchange.class, ev -> { 
+        EventSubscriber<WebSocketEvent> acmeSubscriber = acmeHandler.subscribe(V1CredentialExchange.class, ev -> { 
             V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
             if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
@@ -861,7 +849,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         });
         
         WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
-        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, V1CredentialExchange.class, ev -> { 
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(V1CredentialExchange.class, ev -> { 
             V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
             if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
@@ -952,11 +940,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         logSection("Alice applies for a Loan with Thrift");
         
         WalletRecord thriftWallet = ctx.getWallet(Thrift);
-        String thriftWalletId = thriftWallet.getWalletId();
         AriesClient thrift = createClient(thriftWallet);
         
         WalletRecord aliceWallet = ctx.getWallet(Alice);
-        String aliceWalletId = aliceWallet.getWalletId();
         AriesClient alice = createClient(aliceWallet);
         
         PresentationExchangeRecord[] proverExchangeRecord = new PresentationExchangeRecord[1];
@@ -966,7 +952,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         CountDownLatch proverPresentationAcked = new CountDownLatch(1);
         
         WebSocketEventHandler thriftHandler = WebSockets.getEventHandler(ctx.getWebSocket(Thrift));
-        EventSubscriber<WebSocketEvent> thriftSubscriber = thriftHandler.subscribe(thriftWalletId, PresentationExchangeRecord.class, ev -> { 
+        EventSubscriber<WebSocketEvent> thriftSubscriber = thriftHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
             PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
             log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
             if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.PRESENTATION_RECEIVED == pex.getState()) {
@@ -976,7 +962,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         });
         
         WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
-        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, PresentationExchangeRecord.class, ev -> { 
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
             PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
             log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
             if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.REQUEST_RECEIVED == pex.getState()) {
@@ -1090,11 +1076,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         logSection("Alice goes through the KYC process with Thrift");
         
         WalletRecord thriftWallet = ctx.getWallet(Thrift);
-        String thriftWalletId = thriftWallet.getWalletId();
         AriesClient thrift = createClient(thriftWallet);
         
         WalletRecord aliceWallet = ctx.getWallet(Alice);
-        String aliceWalletId = aliceWallet.getWalletId();
         AriesClient alice = createClient(aliceWallet);
         
         PresentationExchangeRecord[] proverExchangeRecord = new PresentationExchangeRecord[1];
@@ -1104,7 +1088,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         CountDownLatch proverPresentationAcked = new CountDownLatch(1);
         
         WebSocketEventHandler thriftHandler = WebSockets.getEventHandler(ctx.getWebSocket(Thrift));
-        EventSubscriber<WebSocketEvent> thriftSubscriber = thriftHandler.subscribe(thriftWalletId, PresentationExchangeRecord.class, ev -> { 
+        EventSubscriber<WebSocketEvent> thriftSubscriber = thriftHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
             PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
             log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
             if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.PRESENTATION_RECEIVED == pex.getState()) {
@@ -1114,7 +1098,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         });
         
         WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
-        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(aliceWalletId, PresentationExchangeRecord.class, ev -> { 
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
             PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
             log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
             if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.REQUEST_RECEIVED == pex.getState()) {
@@ -1219,20 +1203,21 @@ public class GettingStartedTest extends AbstractAriesTest {
         CountDownLatch revocationEventLatch = new CountDownLatch(1);
         CountDownLatch credentialRevokedLatch = new CountDownLatch(1);
         
+        WebSocketEventHandler acmeHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
+        EventSubscriber<WebSocketEvent> acmeSubscriber = acmeHandler.subscribe(RevocationEvent.class, ev -> { 
+            RevocationEvent revoc = ev.getPayload(RevocationEvent.class);
+            log.info("{}: [@{}] {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), revoc.getState(), revoc); 
+            if ("revoked".equals(revoc.getState())) {
+                revocationEventLatch.countDown();
+            }
+        });
+        
         WebSocketEventHandler aliceHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
-        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribe(Arrays.asList(acmeWalletId), Arrays.asList(RevocationEvent.class, V1CredentialExchange.class), ev -> { 
-            if (EventType.ISSUER_CRED_REV.topicEquals(ev.getTopic())) {
-                RevocationEvent revoc = ev.getPayload(RevocationEvent.class);
-                log.info("{}: [@{}] {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), revoc.getState(), revoc); 
-                if ("revoked".equals(revoc.getState())) {
-                    revocationEventLatch.countDown();
-                }
-            } else {
-                V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
-                log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
-                if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.CREDENTIAL_REVOKED == cex.getState()) {
-                    credentialRevokedLatch.countDown();
-                }
+        EventSubscriber<WebSocketEvent> aliceSubscriber = aliceHandler.subscribeFromOther(acmeWalletId, V1CredentialExchange.class, ev -> { 
+            V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
+            if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.CREDENTIAL_REVOKED == cex.getState()) {
+                credentialRevokedLatch.countDown();
             }
         });
         
@@ -1262,6 +1247,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         Assertions.assertTrue(credentialRevokedLatch.await(10, TimeUnit.SECONDS), "No ISSUER CREDENTIAL_REVOKED");
         
         aliceSubscriber.cancelSubscription();
+        acmeSubscriber.cancelSubscription();
     }
 
     void closeAndDeleteWallets(Context ctx) throws Exception {

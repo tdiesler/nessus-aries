@@ -3,6 +3,7 @@ package io.nessus.aries.coms;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,6 +38,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
 import io.nessus.aries.Configuration;
+import io.nessus.aries.coms.FilteringEventSubscriber.EventSubscriberSpec;
 import io.nessus.aries.util.SafeConsumer;
 import io.nessus.aries.wallet.WalletRegistry;
 
@@ -48,17 +50,20 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
     private final EventParser parser = new EventParser();
 
     private final WalletRegistry walletRegistry;
+    private final List<EventSubscriberSpec> subsspecs;
     private WalletRecord thisWallet;
     
-    private WebSocketEventHandler(WalletRegistry walletRegistry, List<EventSubscriber<WebSocketEvent>> subscribers) {
+    private WebSocketEventHandler(WalletRegistry walletRegistry, List<EventSubscriberSpec> subsspecs) {
         this.walletRegistry = walletRegistry;
-        for (EventSubscriber<WebSocketEvent> sub : subscribers)
-            this.webSocketEventPublisher.subscribe(sub);
+        this.subsspecs = new ArrayList<>(subsspecs);
     }
 
-    // Set internally
-    void setThisWallet(WalletRecord thisWallet) {
+    void init(WalletRecord thisWallet) {
         this.thisWallet = thisWallet;
+        for (EventSubscriberSpec spec : subsspecs) {
+            List<String> walletIds = Arrays.asList(getThisWalletId());
+            webSocketEventPublisher.subscribe(new FilteringEventSubscriber(walletIds, spec.eventTypes, spec.consumer));
+        }
     }
 
     public Optional<WalletRecord> getWallet(String walletId) {
@@ -86,16 +91,21 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
         webSocketEventPublisher.close();
     }
     
-    public <T> EventSubscriber<WebSocketEvent> subscribe(String walletId, Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
+    public <T> EventSubscriber<WebSocketEvent> subscribe(Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
+        return subscribe(Arrays.asList(eventType), consumer);
+    }
+    
+    public <T> EventSubscriber<WebSocketEvent> subscribe(List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
         Objects.requireNonNull(consumer);
-        EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber(walletId, eventType, consumer);
+        FilteringEventSubscriber subscriber = new FilteringEventSubscriber(Arrays.asList(getThisWalletId()), eventTypes, consumer);
         webSocketEventPublisher.subscribe(subscriber);
         return subscriber;
     }
     
-    public EventSubscriber<WebSocketEvent> subscribe(List<String> walletIds, List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+    // [TODO] Is it really needed/possible to subscribe to events from other sub-wallets
+    public <T> EventSubscriber<WebSocketEvent> subscribeFromOther(String walletId, Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
         Objects.requireNonNull(consumer);
-        EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber(walletIds, eventTypes, consumer);
+        FilteringEventSubscriber subscriber = new FilteringEventSubscriber(Arrays.asList(walletId), Arrays.asList(eventType), consumer);
         webSocketEventPublisher.subscribe(subscriber);
         return subscriber;
     }
@@ -216,29 +226,25 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
     public static class Builder {
         
         private WalletRegistry walletRegistry;
-        private List<EventSubscriber<WebSocketEvent>> subscribers = new ArrayList<>();
+        private List<EventSubscriberSpec> subspecs = new ArrayList<>();
 
         public Builder walletRegistry(WalletRegistry walletRegistry) {
             this.walletRegistry = walletRegistry;
             return this;
         }
 
-        public <T> Builder subscribe(String walletId, Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
-            Objects.requireNonNull(consumer);
-            EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber(walletId, eventType, consumer);
-            this.subscribers.add(subscriber);
+        public <T> Builder subscribe(Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
+            subspecs.add(new EventSubscriberSpec(Arrays.asList(eventType), consumer));
             return this;
         }
         
-        public Builder subscribe(List<String> walletIds, List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
-            Objects.requireNonNull(consumer);
-            EventSubscriber<WebSocketEvent> subscriber = new FilteringEventSubscriber(walletIds, eventTypes, consumer);
-            this.subscribers.add(subscriber);
+        public Builder subscribe(List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+            subspecs.add(new EventSubscriberSpec(eventTypes, consumer));
             return this;
         }
         
         public WebSocketEventHandler build() {
-            return new WebSocketEventHandler(walletRegistry, subscribers);
+            return new WebSocketEventHandler(walletRegistry, subspecs);
         }
     }
 }

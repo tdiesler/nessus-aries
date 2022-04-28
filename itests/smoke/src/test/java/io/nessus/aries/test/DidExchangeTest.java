@@ -43,12 +43,12 @@ public class DidExchangeTest extends AbstractAriesTest {
         CountDownLatch peerConnectionLatch = new CountDownLatch(2);
         
         WebSocket inviterSocket = createWebSocket(faberWallet, new WebSocketEventHandler.Builder()
-                .subscribe(null, Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
         WebSocket inviteeSocket = createWebSocket(aliceWallet, new WebSocketEventHandler.Builder()
-                .subscribe(null, Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         

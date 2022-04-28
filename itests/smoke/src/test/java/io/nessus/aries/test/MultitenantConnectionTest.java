@@ -1,7 +1,6 @@
 
 package io.nessus.aries.test;
 
-import static io.nessus.aries.wallet.ConnectionHelper.connectPeers;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
 import java.util.List;
@@ -13,6 +12,8 @@ import org.hyperledger.aries.api.connection.ConnectionState;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import io.nessus.aries.wallet.ConnectionHelper;
 
 /**
  * Test RFC 0160: Connection Protocol with multitenant wallets
@@ -35,7 +36,7 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
             
             logSection("Connect Faber to Alice");
             
-            Map<String, ConnectionRecord> connections = connectPeers(inviterWallet, inviteeWallet);
+            Map<String, ConnectionRecord> connections = ConnectionHelper.connectPeers(inviterWallet, inviteeWallet);
             
             ConnectionRecord inviterConnection = connections.get(inviterWallet.getWalletId());
             String inviterConnectionId = inviterConnection.getConnectionId();

@@ -16,7 +16,7 @@ public final class WebSockets {
     public static final OkHttpClient httpClient = HttpClient.createHttpClient();
 
     public static WebSocket createWebSocket(WalletRecord thisWallet, WebSocketEventHandler handler) {
-        handler.setThisWallet(thisWallet);
+        handler.init(thisWallet);
         String walletName = thisWallet.getSettings().getWalletName();
         WebSocket webSocket = httpClient.newWebSocket(new Request.Builder()
                 .url("ws://localhost:8031/ws")

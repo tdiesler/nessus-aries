@@ -1,6 +1,5 @@
 package io.nessus.aries.coms;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -13,10 +12,6 @@ public class FilteringEventSubscriber extends EventSubscriber<WebSocketEvent> {
     private final List<Class<?>> eventTypes;
     private final SafeConsumer<WebSocketEvent> consumer;
     
-    public FilteringEventSubscriber(String walletId, Class<?> eventType, SafeConsumer<WebSocketEvent> consumer) {
-        this(walletId != null ? Arrays.asList(walletId) : Arrays.asList(), eventType != null ? Arrays.asList(eventType) : Arrays.asList(), consumer);
-    }
-
     public FilteringEventSubscriber(List<String> walletIds, List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
         Objects.requireNonNull(walletIds);
         Objects.requireNonNull(eventTypes);
@@ -40,5 +35,16 @@ public class FilteringEventSubscriber extends EventSubscriber<WebSocketEvent> {
             }
         }
         subscription.request(1);
+    }
+    
+    static class EventSubscriberSpec {
+        
+        final List<Class<?>> eventTypes;
+        final SafeConsumer<WebSocketEvent> consumer;
+        
+        EventSubscriberSpec(List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+            this.eventTypes = eventTypes;
+            this.consumer = consumer;
+        }        
     }
 }

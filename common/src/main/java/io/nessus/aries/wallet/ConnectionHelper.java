@@ -50,13 +50,13 @@ public class ConnectionHelper {
         };
         
         WebSocket inviterSocket = WebSockets.createWebSocket(inviterWallet, new WebSocketEventHandler.Builder()
-                .subscribe(inviterWallet.getWalletId(), ConnectionRecord.class, eventConsumer)
                 .walletRegistry(new WalletRegistry(inviterWallet, inviteeWallet))
+                .subscribe(ConnectionRecord.class, eventConsumer)
                 .build());
         
         WebSocket inviteeSocket = WebSockets.createWebSocket(inviteeWallet, new WebSocketEventHandler.Builder()
-                .subscribe(inviteeWallet.getWalletId(), ConnectionRecord.class, eventConsumer)
                 .walletRegistry(new WalletRegistry(inviterWallet, inviteeWallet))
+                .subscribe(ConnectionRecord.class, eventConsumer)
                 .build());
         
         AriesClient inviter = Configuration.createClient(inviterWallet);
