@@ -1,7 +1,5 @@
 package io.nessus.aries.wallet;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -10,6 +8,7 @@ import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionState;
+import org.hyperledger.aries.api.connection.ConnectionTheirRole;
 import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.hyperledger.aries.api.connection.CreateInvitationResponse;
 import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
@@ -25,6 +24,13 @@ import io.nessus.aries.util.AssertState;
 import io.nessus.aries.util.SafeConsumer;
 import okhttp3.WebSocket;
 
+/**
+ * RFC 0160: Connection Protocol with multitenant wallets
+ * 
+ * Requires --auto-ping-connection otherwise Inviter gets stuck in state RESPONSE
+ * 
+ * https://github.com/hyperledger/aries-rfcs/tree/main/features/0160-connection-protocol
+ */
 public class ConnectionHelper {
     
     static final Logger log = LoggerFactory.getLogger(ConnectionHelper.class);
@@ -33,9 +39,22 @@ public class ConnectionHelper {
     private ConnectionHelper() {
     }
     
-    public static Map<String, ConnectionRecord> connectPeers(WalletRecord inviterWallet, WalletRecord inviteeWallet) throws Exception {
+    public static class ConnectionResult {
+        private ConnectionRecord inviterConnection;
+        private ConnectionRecord inviteeConnection;
         
-        Map<String, ConnectionRecord> connections = new HashMap<>();
+        public ConnectionRecord getInviterConnection() {
+            return inviterConnection;
+        }
+        
+        public ConnectionRecord getInviteeConnection() {
+            return inviteeConnection;
+        }
+    }
+    
+    public static ConnectionResult connectPeers(WalletRecord inviterWallet, WalletRecord inviteeWallet) throws Exception {
+        
+        ConnectionResult connectionResult = new ConnectionResult();
         CountDownLatch peerConnectionLatch = new CountDownLatch(2);
         
         SafeConsumer<WebSocketEvent> eventConsumer = ev -> {
@@ -43,7 +62,10 @@ public class ConnectionHelper {
             String theirName = ev.getTheirWalletName();
             ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
             log.info("{}: [@{}] {} {} {}", thisName, theirName, con.getTheirRole(), con.getState(), con);
-            connections.put(ev.getThisWalletId(), con);
+            if (con.getTheirRole() == ConnectionTheirRole.INVITEE) 
+                connectionResult.inviterConnection = con;
+            if (con.getTheirRole() == ConnectionTheirRole.INVITER) 
+                connectionResult.inviteeConnection = con;
             if (ConnectionState.ACTIVE == con.getState()) {
                 peerConnectionLatch.countDown();
             }
@@ -62,12 +84,12 @@ public class ConnectionHelper {
         AriesClient inviter = Configuration.createClient(inviterWallet);
         AriesClient invitee = Configuration.createClient(inviteeWallet);
         
-        // Invitee creates an invitation (/connections/create-invitation)
-        CreateInvitationResponse response = invitee.connectionsCreateInvitation(CreateInvitationRequest.builder().build()).get();
+        // Inviter creates an invitation (/connections/create-invitation)
+        CreateInvitationResponse response = inviter.connectionsCreateInvitation(CreateInvitationRequest.builder().build()).get();
         ConnectionInvitation invitation = response.getInvitation();
         
-        // Inviter receives the invitation from the Invitee (/connections/receive-invitation)
-        inviter.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+        // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
+        invitee.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
                 .recipientKeys(invitation.getRecipientKeys())
                 .serviceEndpoint(invitation.getServiceEndpoint())
                 .build(), ConnectionReceiveInvitationFilter.builder()
@@ -79,6 +101,6 @@ public class ConnectionHelper {
         WebSockets.closeWebSocket(inviterSocket);
         WebSockets.closeWebSocket(inviteeSocket);
         
-        return connections;
+        return connectionResult;
     }
 }

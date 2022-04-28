@@ -64,6 +64,7 @@ import io.nessus.aries.util.AttachmentKey;
 import io.nessus.aries.util.AttachmentSupport;
 import io.nessus.aries.wallet.ConnectionHelper;
 import io.nessus.aries.wallet.CredentialProposalHelper;
+import io.nessus.aries.wallet.ConnectionHelper.ConnectionResult;
 import okhttp3.WebSocket;
 
 /**
@@ -357,7 +358,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         DID publicDid = client.walletDidPublic().get();
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .subscribe(Arrays.asList(), ev -> log.warn("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                 .walletRegistry(walletRegistry)
                 .build());
         
@@ -449,15 +450,12 @@ public class GettingStartedTest extends AbstractAriesTest {
         logSection(String.format("Connect %s to %s", inviter, invitee));
         
         WalletRecord inviterWallet = ctx.getWallet(inviter);
-        String inviterId = inviterWallet.getWalletId();        
-
         WalletRecord inviteeWallet = ctx.getWallet(invitee);
-        String inviteeId = inviteeWallet.getWalletId();        
         
-        Map<String, ConnectionRecord> connections = ConnectionHelper.connectPeers(inviterWallet, inviteeWallet);
+        ConnectionResult connectionResult = ConnectionHelper.connectPeers(inviterWallet, inviteeWallet);
         
-        ctx.putAttachment(inviter + invitee + "Connection", connections.get(inviterId));
-        ctx.putAttachment(invitee + inviter + "Connection", connections.get(inviteeId));
+        ctx.putAttachment(inviter + invitee + "Connection", connectionResult.getInviterConnection());
+        ctx.putAttachment(invitee + inviter + "Connection", connectionResult.getInviteeConnection());
     }
 
     void createTranscriptSchema(Context ctx) throws IOException {
