@@ -61,7 +61,7 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
     void init(WalletRecord thisWallet) {
         this.thisWallet = thisWallet;
         for (EventSubscriberSpec spec : subsspecs) {
-            List<String> walletIds = Arrays.asList(getThisWalletId());
+            List<String> walletIds = spec.walletIds != null ? spec.walletIds : Arrays.asList(getThisWalletId());
             webSocketEventPublisher.subscribe(new FilteringEventSubscriber(walletIds, spec.eventTypes, spec.consumer));
         }
     }
@@ -234,12 +234,17 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
         }
 
         public <T> Builder subscribe(Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
-            subspecs.add(new EventSubscriberSpec(Arrays.asList(eventType), consumer));
+            subspecs.add(new EventSubscriberSpec(null, Arrays.asList(eventType), consumer));
             return this;
         }
         
         public Builder subscribe(List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
-            subspecs.add(new EventSubscriberSpec(eventTypes, consumer));
+            subspecs.add(new EventSubscriberSpec(null, eventTypes, consumer));
+            return this;
+        }
+        
+        public Builder subscribeFromOther(List<String> walletIds, List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+            subspecs.add(new EventSubscriberSpec(walletIds, eventTypes, consumer));
             return this;
         }
         

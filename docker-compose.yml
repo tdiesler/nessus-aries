@@ -10,9 +10,7 @@ services:
   # Webserver
   #
   webserver:
-    image: von-network-webserver
-    build:
-      context: ./docker/von-network
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
     container_name: indy-webserver
     command: bash -c 'sleep 10 && ./scripts/start_webserver.sh'
     environment:
@@ -44,7 +42,7 @@ services:
   # Nodes
   #
   node1:
-    image: von-network-base
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
     container_name: indy-node1
     command: ./scripts/start_node.sh 1
     networks:
@@ -62,7 +60,7 @@ services:
       - node1-data:/home/indy/ledger
 
   node2:
-    image: von-network-base
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
     container_name: indy-node2
     command: ./scripts/start_node.sh 2
     networks:
@@ -80,7 +78,7 @@ services:
       - node2-data:/home/indy/ledger
 
   node3:
-    image: von-network-base
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
     container_name: indy-node3
     command: ./scripts/start_node.sh 3
     networks:
@@ -98,7 +96,7 @@ services:
       - node3-data:/home/indy/ledger
 
   node4:
-    image: von-network-base
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
     container_name: indy-node4
     command: ./scripts/start_node.sh 4
     networks:
@@ -116,7 +114,7 @@ services:
       - node4-data:/home/indy/ledger
 
   tails-server:
-    image: nessus/indy-tails-server
+    image: nessusio/indy-tails-server:${TAILS_SERVER_VERSION:-latest}
     container_name: tails-server
     ports:
       - 6543:6543
@@ -130,13 +128,17 @@ services:
         --log-level ${LOG_LEVEL:-info}
 
   acapy:
-    image: nessus/aries-cloudagent-python
+    image: nessusio/aries-cloudagent-python:${ACAPY_VERSION:-latest}
     container_name: acapy
     ports:
       - ${ACAPY_USER_PORT:-8030}:${ACAPY_USER_PORT:-8030}
       - ${ACAPY_ADMIN_PORT:-8031}:${ACAPY_ADMIN_PORT:-8031}
     networks:
       - von-network
+    depends_on:
+      - nodes
+      - webserver
+      - tails-server
     command: >
       start
         --genesis-url http://${DOCKERHOST:-host.docker.internal}:9000/genesis
@@ -160,6 +162,7 @@ services:
         --auto-ping-connection
         --auto-accept-requests
         --log-level info
+        
 volumes:
   webserver-cli:
   webserver-ledger:

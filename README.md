@@ -18,34 +18,17 @@ Shouldn't we have in fact a [self sovereign identity](https://www.manning.com/bo
 * [Hyperledger Aries Wiki](https://wiki.hyperledger.org/display/aries)
 * [Aries Cloud Agent](https://github.com/hyperledger/aries-ACA-Py-controllers/tree/main/AliceFaberAcmeDemo)
 
-## Ledger with VON-Network
+### Ledger with VON-Network
 
 This project requires access to a Hyperledger Indy Network. Is is recommended to use the [VON Network](https://github.com/bcgov/von-network), developed as a portable Indy Node Network implementation for local development. Instructions for setting up the von-network can be viewed [here](https://github.com/bcgov/von-network#running-the-network-locally).
 
 Basic instructions for using the VON Network are [here](https://github.com/bcgov/von-network/blob/main/docs/UsingVONNetwork.md).
 
-```
-git clone https://github.com/bcgov/von-network
-cd von-network
-
-./manage build
-./manage up --logs
-```
-
-## SSI Agent with ACA-Py
+### ACA-Py SSI Agent
 
 Hyperledger [Aries Cloud Agent Python (ACA-Py)](https://github.com/hyperledger/aries-cloudagent-python) is a foundation for building decentralized identity applications and services.
 
-### Build the ACA-Py Docker image
-
-```
-git clone https://github.com/hyperledger/aries-cloudagent-python
-cd aries-cloudagent-python
-
-docker build -t nessus/aries-cloudagent-python -f ./docker/Dockerfile.run .
-```
-
-### Run ACA-Py in insecure multitenant mode
+#### Run ACA-Py in insecure multitenant mode
 
 This gives access to the [Swagger UI](http://localhost:8031). 
 
@@ -76,7 +59,7 @@ docker run -it --rm \
       --log-level info
 ```
 
-## Revocation with Tails Server
+### Revocation with Tails Server
 
 Verifiable Credentials (VC) are issued to the Credential Holder and (if the credential supports revocation) can be revoked again by the Issuer.
 To support [Credential Revocation](https://github.com/hyperledger/aries-cloudagent-python/blob/main/docs/GettingStartedAriesDev/CredentialRevocation.md) we
@@ -84,25 +67,11 @@ need a running instance of a [Tails Server](https://github.com/bcgov/indy-tails-
 
 For an ultra-high-level intro, you might consider watching [this introductory video](https://youtu.be/QsRu4ZqJpG4).
 
-### Build the Tails Server Docker image
 
-```
-git clone https://github.com/bcgov/indy-tails-server
-cd indy-tails-server
-
-docker build -t nessus/indy-tails-server -f ./docker/Dockerfile.tails-server .
-```
-
-### One-Shot startup for VON-Network, ACA-Py and Tails Server 
+## Start VON-Network, ACA-Py and Tails Server 
 
 Use this when you want to run the tests.
 
-Some of the images referenced in this script need to be built manually as decribed above
-
-* von-network-base
-* nessus/aries-cloudagent-python
-* nessus/indy-tails-server
-
 ```
-docker-compose up --detach && docker-compose logs -f acapy
+docker compose up --detach && docker compose logs -f acapy
 ```

@@ -39,10 +39,12 @@ public class FilteringEventSubscriber extends EventSubscriber<WebSocketEvent> {
     
     static class EventSubscriberSpec {
         
+        final List<String> walletIds;
         final List<Class<?>> eventTypes;
         final SafeConsumer<WebSocketEvent> consumer;
         
-        EventSubscriberSpec(List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+        EventSubscriberSpec(List<String> walletIds, List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+            this.walletIds = walletIds;
             this.eventTypes = eventTypes;
             this.consumer = consumer;
         }        

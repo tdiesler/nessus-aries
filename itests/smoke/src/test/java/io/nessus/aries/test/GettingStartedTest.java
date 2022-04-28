@@ -67,10 +67,7 @@ import io.nessus.aries.wallet.CredentialProposalHelper;
 import okhttp3.WebSocket;
 
 /**
- * The Ledger is externally provided by a running instance of the VON-Network
- * The Agent is Aries Cloudagent Python
- * 
- * docker-compose up --detach && docker-compose logs -f acapy
+ * docker compose up --detach && docker compose logs -f acapy
  */
 public class GettingStartedTest extends AbstractAriesTest {
 
