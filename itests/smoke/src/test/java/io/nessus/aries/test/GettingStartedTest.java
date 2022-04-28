@@ -341,6 +341,9 @@ public class GettingStartedTest extends AbstractAriesTest {
          * Alice applies for another loan with Thrift Bank - this time without having a Job
          * 
          */
+        
+        // Alice comes back from holiday by which time the revocation should be known 
+        safeSleep(2000);
 
         applyForLoanWithThrift(ctx);
     }
@@ -1004,7 +1007,7 @@ public class GettingStartedTest extends AbstractAriesTest {
                         .requestedPredicate("pred1_referent", restrictedProofReqPred.apply("salary >= 2000", jobCertificateCredDefId))
                         .requestedPredicate("pred2_referent", restrictedProofReqPred.apply("experience >= 1", jobCertificateCredDefId))
                         .nonRevoked(ProofNonRevoked.builder()
-                                .from(0L)
+                                .from(Instant.now().getEpochSecond())
                                 .to(Instant.now().getEpochSecond())
                                 .build())
                         .build())
