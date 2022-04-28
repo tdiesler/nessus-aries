@@ -1,4 +1,4 @@
-package io.nessus.aries.common;
+package io.nessus.aries.wallet;
 
 import java.util.Optional;
 

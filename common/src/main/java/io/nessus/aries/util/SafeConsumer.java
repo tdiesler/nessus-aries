@@ -1,4 +1,4 @@
-package io.nessus.aries.common;
+package io.nessus.aries.util;
 
 /**
  * A Consumer that allows to throw exceptions

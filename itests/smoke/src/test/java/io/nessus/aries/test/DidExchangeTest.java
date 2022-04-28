@@ -1,7 +1,7 @@
 
 package io.nessus.aries.test;
 
-import static io.nessus.aries.common.websocket.WebSockets.createWebSocket;
+import static io.nessus.aries.coms.WebSockets.createWebSocket;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
 import java.util.concurrent.CountDownLatch;
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import io.nessus.aries.common.websocket.WebSocketEventHandler;
+import io.nessus.aries.coms.WebSocketEventHandler;
 import okhttp3.WebSocket;
 
 /**

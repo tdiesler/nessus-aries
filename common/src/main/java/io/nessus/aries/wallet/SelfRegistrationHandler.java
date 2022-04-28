@@ -1,4 +1,4 @@
-package io.nessus.aries.common;
+package io.nessus.aries.wallet;
 
 import java.io.IOException;
 
@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
+import io.nessus.aries.coms.HttpClient;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;

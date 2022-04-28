@@ -1,4 +1,4 @@
-package io.nessus.aries.common;
+package io.nessus.aries.util;
 
 import java.util.Objects;
 

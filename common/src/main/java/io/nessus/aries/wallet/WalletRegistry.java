@@ -1,5 +1,6 @@
-package io.nessus.aries.common;
+package io.nessus.aries.wallet;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,6 +11,13 @@ import org.hyperledger.aries.api.multitenancy.WalletRecord;
 public class WalletRegistry {
     
     private final Map<String, WalletRecord> walletsCache = Collections.synchronizedMap(new HashMap<>());
+
+    public WalletRegistry() {
+    }
+
+    public WalletRegistry(WalletRecord... wallets) {
+        Arrays.asList(wallets).forEach(w -> putWallet(w));
+    }
 
     public void putWallet(WalletRecord wallet) {
         walletsCache.put(wallet.getWalletId(), wallet);

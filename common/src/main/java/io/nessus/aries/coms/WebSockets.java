@@ -1,9 +1,8 @@
-package io.nessus.aries.common.websocket;
+package io.nessus.aries.coms;
 
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 
-import io.nessus.aries.common.Configuration;
-import io.nessus.aries.common.HttpClient;
+import io.nessus.aries.Configuration;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.WebSocket;

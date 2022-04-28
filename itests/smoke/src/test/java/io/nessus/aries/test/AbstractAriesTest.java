@@ -21,11 +21,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 
-import io.nessus.aries.common.Configuration;
-import io.nessus.aries.common.HttpClient;
-import io.nessus.aries.common.SelfRegistrationHandler;
-import io.nessus.aries.common.WalletRegistry;
-import io.nessus.aries.common.websocket.WebSockets;
+import io.nessus.aries.Configuration;
+import io.nessus.aries.coms.HttpClient;
+import io.nessus.aries.coms.WebSockets;
+import io.nessus.aries.wallet.SelfRegistrationHandler;
+import io.nessus.aries.wallet.WalletRegistry;
 import okhttp3.OkHttpClient;
 import okhttp3.WebSocket;
 

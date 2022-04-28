@@ -1,4 +1,4 @@
-package io.nessus.aries.common.websocket;
+package io.nessus.aries.coms;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;

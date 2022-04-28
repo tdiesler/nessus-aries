@@ -1,11 +1,11 @@
-package io.nessus.aries.common.websocket;
+package io.nessus.aries.coms;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import io.nessus.aries.common.SafeConsumer;
-import io.nessus.aries.common.websocket.WebSocketEventHandler.WebSocketEvent;
+import io.nessus.aries.coms.WebSocketEventHandler.WebSocketEvent;
+import io.nessus.aries.util.SafeConsumer;
 
 public class FilteringEventSubscriber extends EventSubscriber<WebSocketEvent> {
 

@@ -1,4 +1,4 @@
-package io.nessus.aries.common.websocket;
+package io.nessus.aries.coms;
 
 import org.hyperledger.aries.webhook.AriesWebSocketListener;
 

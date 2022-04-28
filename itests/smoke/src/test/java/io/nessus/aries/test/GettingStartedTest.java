@@ -15,18 +15,11 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.acy_py.generated.model.IndyProofReqPredSpec.PTypeEnum;
 import org.hyperledger.acy_py.generated.model.IssuerRevRegRecord;
 import org.hyperledger.aries.AriesClient;
-import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
-import org.hyperledger.aries.api.connection.ConnectionState;
-import org.hyperledger.aries.api.connection.CreateInvitationParams;
-import org.hyperledger.aries.api.connection.CreateInvitationRequest;
-import org.hyperledger.aries.api.connection.CreateInvitationResponse;
-import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
 import org.hyperledger.aries.api.credentials.CredentialAttributes;
@@ -64,14 +57,14 @@ import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonObject;
 
-import io.nessus.aries.common.AttachmentKey;
-import io.nessus.aries.common.AttachmentSupport;
-import io.nessus.aries.common.CredentialProposalHelper;
-import io.nessus.aries.common.SafeConsumer;
-import io.nessus.aries.common.websocket.EventSubscriber;
-import io.nessus.aries.common.websocket.WebSocketEventHandler;
-import io.nessus.aries.common.websocket.WebSocketEventHandler.WebSocketEvent;
-import io.nessus.aries.common.websocket.WebSockets;
+import io.nessus.aries.coms.EventSubscriber;
+import io.nessus.aries.coms.WebSocketEventHandler;
+import io.nessus.aries.coms.WebSockets;
+import io.nessus.aries.coms.WebSocketEventHandler.WebSocketEvent;
+import io.nessus.aries.util.AttachmentKey;
+import io.nessus.aries.util.AttachmentSupport;
+import io.nessus.aries.wallet.ConnectionHelper;
+import io.nessus.aries.wallet.CredentialProposalHelper;
 import okhttp3.WebSocket;
 
 /**
@@ -95,32 +88,36 @@ public class GettingStartedTest extends AbstractAriesTest {
     
     class Context extends AttachmentSupport {
 
-        WalletRecord getWallet(String name) {
-            return getAttachment(name, WalletRecord.class);
-        }
-        
         DID getDID(String name) {
             return getAttachment(name, DID.class);
+        }
+        
+        ConnectionRecord getConnection(String inviter, String invitee) {
+            return getAttachment(inviter + invitee + "Connection", ConnectionRecord.class);
+        }
+
+        String getIdentifier(String name) {
+            return getAttachment(name, String.class);
+        }
+        
+        WalletRecord getWallet(String name) {
+            return getAttachment(name, WalletRecord.class);
         }
         
         WebSocket getWebSocket(String name) {
             return getAttachment(name, WebSocket.class);
         }
         
-        ConnectionRecord getConnection(String inviter, String invitee) {
-            return getAttachment(String.format("%s%sConnection", inviter, invitee), ConnectionRecord.class);
-        }
-
-        String getAttachment(String name) {
-            return getAttachment(name, String.class);
-        }
-        
         <T> T getAttachment(String name, Class<T> type) {
             return getAttachment(new AttachmentKey<>(name, type));
         }
         
+        <T> T putAttachment(String name,  Class<T> type, T obj) {
+            return putAttachment(new AttachmentKey<T>(name, type), obj);
+        }
+        
         @SuppressWarnings("unchecked")
-        <T> T putAttachment(String name, T obj) {
+        <T> T putAttachment(String name,  T obj) {
             return putAttachment(new AttachmentKey<T>(name, (Class<T>) obj.getClass()), obj);
         }
     }
@@ -368,7 +365,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         ctx.putAttachment(Government, wallet);
         ctx.putAttachment(Government, publicDid);
-        ctx.putAttachment(new AttachmentKey<>(Government, WebSocket.class), webSocket);
+        ctx.putAttachment(Government, WebSocket.class, webSocket);
     }
 
     void onboardFaberCollege(Context ctx) throws IOException {
@@ -390,7 +387,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         ctx.putAttachment(Faber, wallet);
         ctx.putAttachment(Faber, publicDid);
-        ctx.putAttachment(new AttachmentKey<>(Faber, WebSocket.class), webSocket);
+        ctx.putAttachment(Faber, WebSocket.class, webSocket);
     }
 
     void onboardAcmeCorp(Context ctx) throws IOException {
@@ -412,7 +409,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         ctx.putAttachment(Acme, wallet);
         ctx.putAttachment(Acme, publicDid);
-        ctx.putAttachment(new AttachmentKey<>(Acme, WebSocket.class), webSocket);
+        ctx.putAttachment(Acme, WebSocket.class, webSocket);
     }
 
     void onboardThriftBank(Context ctx) throws IOException {
@@ -434,7 +431,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         ctx.putAttachment(Thrift, wallet);
         ctx.putAttachment(Thrift, publicDid);
-        ctx.putAttachment(new AttachmentKey<>(Thrift, WebSocket.class), webSocket);
+        ctx.putAttachment(Thrift, WebSocket.class, webSocket);
     }
 
     void onboardAlice(Context ctx) throws IOException {
@@ -450,58 +447,23 @@ public class GettingStartedTest extends AbstractAriesTest {
                 .build());
         
         ctx.putAttachment(Alice, wallet);
-        ctx.putAttachment(new AttachmentKey<>(Alice, WebSocket.class), webSocket);
+        ctx.putAttachment(Alice, WebSocket.class, webSocket);
     }
 
     void connectPeers(Context ctx, String inviter, String invitee) throws Exception {
         
-        logSection(String.format("Connect %s to %s", invitee, inviter));
-        
-        CountDownLatch peerConnectionLatch = new CountDownLatch(2);
-        
-        SafeConsumer<WebSocketEvent> eventConsumer = ev -> {
-            String thisName = ev.getThisWalletName();
-            String theirName = ev.getTheirWalletName();
-            ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
-            log.info("{}: [@{}] {} {} {}", thisName, theirName, con.getTheirRole(), con.getState(), con);
-            ctx.putAttachment(String.format("%s%sConnection", theirName, thisName), con);
-            if (ConnectionState.ACTIVE == con.getState()) {
-                peerConnectionLatch.countDown();
-            }
-        };
+        logSection(String.format("Connect %s to %s", inviter, invitee));
         
         WalletRecord inviterWallet = ctx.getWallet(inviter);
-        WalletRecord inviteeWallet = ctx.getWallet(invitee);
-        
-        WebSocketEventHandler inviterHandler = WebSockets.getEventHandler(ctx.getWebSocket(inviter));
-        EventSubscriber<WebSocketEvent> inviterSubscriber = inviterHandler.subscribe(inviteeWallet.getWalletId(), ConnectionRecord.class, eventConsumer);
-        
-        WebSocketEventHandler inviteeHandler = WebSockets.getEventHandler(ctx.getWebSocket(invitee));
-        EventSubscriber<WebSocketEvent> inviteeubscriber = inviteeHandler.subscribe(inviterWallet.getWalletId(), ConnectionRecord.class, eventConsumer);
-        
-        AriesClient inviterClient = createClient(inviterWallet);
-        AriesClient inviteeClient = createClient(inviteeWallet);
-        
-        // Inviter creates an invitation (/connections/create-invitation)
-        CreateInvitationResponse response = inviterClient.connectionsCreateInvitation(
-                CreateInvitationRequest.builder().build(), 
-                CreateInvitationParams.builder()
-                    .autoAccept(true)
-                    .build()).get();
-        ConnectionInvitation invitation = response.getInvitation();
-        
-        // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
-        inviteeClient.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
-                .recipientKeys(invitation.getRecipientKeys())
-                .serviceEndpoint(invitation.getServiceEndpoint())
-                .build(), ConnectionReceiveInvitationFilter.builder()
-                    .autoAccept(true)
-                    .build()).get();
+        String inviterId = inviterWallet.getWalletId();        
 
-        Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
+        WalletRecord inviteeWallet = ctx.getWallet(invitee);
+        String inviteeId = inviteeWallet.getWalletId();        
         
-        inviterSubscriber.cancelSubscription();
-        inviteeubscriber.cancelSubscription();
+        Map<String, ConnectionRecord> connections = ConnectionHelper.connectPeers(inviterWallet, inviteeWallet);
+        
+        ctx.putAttachment(inviter + invitee + "Connection", connections.get(inviterId));
+        ctx.putAttachment(invitee + inviter + "Connection", connections.get(inviteeId));
     }
 
     void createTranscriptSchema(Context ctx) throws IOException {
@@ -551,7 +513,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         // 1. Faber get the Transcript Credential Schema
 
         AriesClient faber = createClient(ctx.getWallet(Faber));
-        Schema schema = faber.schemasGetById(ctx.getAttachment(TranscriptSchemaId)).get();
+        Schema schema = faber.schemasGetById(ctx.getIdentifier(TranscriptSchemaId)).get();
         log.info("{}", schema);
 
         // 2. Faber creates the Credential Definition related to the received Credential Schema and send it to the ledger
@@ -572,7 +534,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         // 1. Acme get the Transcript Credential Schema
 
         AriesClient acme = createClient(ctx.getWallet(Acme));
-        Schema schema = acme.schemasGetById(ctx.getAttachment(JobCertificateSchemaId)).get();
+        Schema schema = acme.schemasGetById(ctx.getIdentifier(JobCertificateSchemaId)).get();
         log.info("{}", schema);
 
         // 2. Acme creates the Credential Definition related to the received Credential Schema and send it to the ledger
@@ -653,7 +615,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * The value of this Transcript Credential is that it is provably issued by Faber College
          */
         
-        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId);
+        String transcriptCredDefId = ctx.getIdentifier(TranscriptCredDefId);
         faber.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
                 .connectionId(faberAliceConnectionId)
                 .credentialDefinitionId(transcriptCredDefId)
@@ -771,7 +733,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * Alice’s own credential about her names and phone number.
          */
         
-        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId);
+        String transcriptCredDefId = ctx.getIdentifier(TranscriptCredDefId);
         String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
         
         Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
@@ -922,7 +884,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * is verifiably proves that the holder is employed by Acme
          */
         
-        String transcriptCredDefId = ctx.getAttachment(JobCertificateCredDefId);
+        String transcriptCredDefId = ctx.getIdentifier(JobCertificateCredDefId);
         acme.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
                 .connectionId(acmeAliceConnectionId)
                 .credentialDefinitionId(transcriptCredDefId)
@@ -1032,7 +994,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * Note, that the Job-Certificate should not have been revoked at the time of application.
          */
         
-        String jobCertificateCredDefId = ctx.getAttachment(JobCertificateCredDefId);
+        String jobCertificateCredDefId = ctx.getIdentifier(JobCertificateCredDefId);
         String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
         
         Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
@@ -1169,7 +1131,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * 
          */
         
-        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId);
+        String transcriptCredDefId = ctx.getIdentifier(TranscriptCredDefId);
         String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
         
         Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
@@ -1279,7 +1241,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient acme = createClient(acmeWallet);
         
         String connectionId = ctx.getConnection(Acme, Alice).getConnectionId();
-        String jobCertificateCredDefId = ctx.getAttachment(JobCertificateCredDefId);
+        String jobCertificateCredDefId = ctx.getIdentifier(JobCertificateCredDefId);
         Predicate<String> matchCredDefId = cdid -> cdid.equals(jobCertificateCredDefId);
         V1CredentialExchange credex = acme.issueCredentialRecords(IssueCredentialRecordsFilter.builder()
                 .connectionId(connectionId)
