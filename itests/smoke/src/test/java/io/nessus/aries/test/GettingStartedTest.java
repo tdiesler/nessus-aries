@@ -318,7 +318,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * offered by Acme.
          */
 
-        applyForLoanWithThrift(ctx);
+        applyForLoanWithThrift(ctx, true);
 
         /*
          * Thrift accepts the loan application and now requires KYC
@@ -340,12 +340,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * 
          */
         
-        // Alice comes back from holiday by which time the revocation should be known 
-        safeSleep(2000);
-
-        // [TODO] [#8] Verification does not fail for revoked Job-Certificate
-        // https://github.com/tdiesler/nessus-aries/issues/8
-        // applyForLoanWithThrift(ctx);
+        applyForLoanWithThrift(ctx, false);
     }
 
     void onboardGovernment(Context ctx) throws IOException {
@@ -838,6 +833,10 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         Assertions.assertTrue(proverPresentationAcked.await(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
         
+        // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
+        // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
+        //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
+        
         acmeSubscriber.cancelSubscription();
         aliceSubscriber.cancelSubscription();
     }
@@ -957,7 +956,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         aliceSubscriber.cancelSubscription();
     }
 
-    void applyForLoanWithThrift(Context ctx) throws Exception {
+    void applyForLoanWithThrift(Context ctx, boolean expectedOutcome) throws Exception {
         
         logSection("Alice applies for a Loan with Thrift");
         
@@ -1095,9 +1094,12 @@ public class GettingStartedTest extends AbstractAriesTest {
         thrift.presentProofRecordsVerifyPresentation(presentationExchangeId).get();
         
         Assertions.assertTrue(verifierVerified.await(10, TimeUnit.SECONDS), "No VERIFIER VERIFIED");
-        Assertions.assertTrue(verifierExchangeRecord[0].isVerified(), "Not VERIFIED");
+        Assertions.assertEquals(expectedOutcome, verifierExchangeRecord[0].isVerified(), "Unexpected verification outcome");
         
         Assertions.assertTrue(proverPresentationAcked.await(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+
+        // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
+        // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
         //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
 
         thriftSubscriber.cancelSubscription();
@@ -1230,6 +1232,9 @@ public class GettingStartedTest extends AbstractAriesTest {
         Assertions.assertTrue(verifierExchangeRecord[0].isVerified(), "Not VERIFIED");
         
         Assertions.assertTrue(proverPresentationAcked.await(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+
+        // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
+        // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
         //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
 
         thriftSubscriber.cancelSubscription();
