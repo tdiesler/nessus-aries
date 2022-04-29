@@ -1,4 +1,4 @@
-package io.nessus.aries.coms;
+package io.nessus.aries;
 
 import java.util.concurrent.TimeUnit;
 
@@ -8,17 +8,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
 
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 
-public final class HttpClient {
+public final class HttpClientFactory {
     
-    static final Logger log = LoggerFactory.getLogger(HttpClient.class);
+    static final Logger log = LoggerFactory.getLogger(HttpClientFactory.class);
     
     // Hide ctor
-    private HttpClient() {}
+    private HttpClientFactory() {}
     
     public static OkHttpClient createHttpClient() {
         return new OkHttpClient.Builder()
@@ -36,12 +35,8 @@ public final class HttpClient {
         HttpLoggingInterceptor interceptor = new HttpLoggingInterceptor(msg -> {
             if (log.isTraceEnabled() && StringUtils.isNotEmpty(msg)) {
                 if (msg.startsWith("{")) {
-                    try {
-                        Object json = gson.fromJson(msg, Object.class);
-                        log.trace("\n{}", pretty.toJson(json));
-                    } catch (JsonSyntaxException e) {
-                        log.trace("{}", msg);
-                    }
+                    Object json = gson.fromJson(msg, Object.class);
+                    log.trace("\n{}", pretty.toJson(json));
                 } else {
                     log.trace("{}", msg);
                 }

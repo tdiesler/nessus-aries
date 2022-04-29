@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import io.nessus.aries.coms.WebSocketEventHandler;
+import io.nessus.aries.wallet.WalletBuilder;
 import okhttp3.WebSocket;
 
 /**
@@ -44,12 +45,12 @@ public class DidExchangeTest extends AbstractAriesTest {
         
         WebSocket inviterSocket = createWebSocket(faberWallet, new WebSocketEventHandler.Builder()
                 .subscribe(Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(walletRegistry)
+                .walletRegistry(getWalletRegistry())
                 .build());
         
         WebSocket inviteeSocket = createWebSocket(aliceWallet, new WebSocketEventHandler.Builder()
                 .subscribe(Settings.class, ev -> log.info("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(walletRegistry)
+                .walletRegistry(getWalletRegistry())
                 .build());
         
         try {

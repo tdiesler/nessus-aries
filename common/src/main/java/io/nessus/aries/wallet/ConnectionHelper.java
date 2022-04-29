@@ -16,7 +16,7 @@ import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.nessus.aries.Configuration;
+import io.nessus.aries.AriesClientFactory;
 import io.nessus.aries.coms.WebSocketEventHandler;
 import io.nessus.aries.coms.WebSocketEventHandler.WebSocketEvent;
 import io.nessus.aries.coms.WebSockets;
@@ -81,8 +81,8 @@ public class ConnectionHelper {
                 .subscribe(ConnectionRecord.class, eventConsumer)
                 .build());
         
-        AriesClient inviter = Configuration.createClient(inviterWallet);
-        AriesClient invitee = Configuration.createClient(inviteeWallet);
+        AriesClient inviter = AriesClientFactory.createClient(inviterWallet);
+        AriesClient invitee = AriesClientFactory.createClient(inviteeWallet);
         
         // Inviter creates an invitation (/connections/create-invitation)
         CreateInvitationResponse response = inviter.connectionsCreateInvitation(CreateInvitationRequest.builder().build()).get();

@@ -1,0 +1,37 @@
+{
+  "component": {
+    "kind": "component",
+    "name": "hyperledger-aries",
+    "title": "Aries",
+    "description": "Access market data and trade on Bitcoin and Altcoin exchanges.",
+    "deprecated": false,
+    "firstVersion": "3.17.0",
+    "label": "blockchain",
+    "javaType": "org.apache.camel.component.aries.HyperledgerAriesComponent",
+    "supportLevel": "Preview",
+    "groupId": "io.nessus.aries",
+    "artifactId": "camel-aries",
+    "version": "0.1.0-SNAPSHOT",
+    "scheme": "hyperledger-aries",
+    "extendsScheme": "",
+    "syntax": "hyperledger-aries:walletName",
+    "async": false,
+    "api": false,
+    "consumerOnly": false,
+    "producerOnly": true,
+    "lenientProperties": false
+  },
+  "componentProperties": {
+    "lazyStartProducer": { "kind": "property", "displayName": "Lazy Start Producer", "group": "producer", "label": "producer", "required": false, "type": "boolean", "javaType": "boolean", "deprecated": false, "autowired": false, "secret": false, "defaultValue": false, "description": "Whether the producer should be started lazy (on the first message). By starting lazy you can use this to allow CamelContext and routes to startup in situations where a producer may otherwise fail during starting and cause the route to fail being started. By deferring this startup to be lazy then the startup failure can be handled during routing messages via Camel's routing error handlers. Beware that when the first message is processed then creating and starting the producer may take a little time and prolong the total processing time of the processing." },
+    "autowiredEnabled": { "kind": "property", "displayName": "Autowired Enabled", "group": "advanced", "label": "advanced", "required": false, "type": "boolean", "javaType": "boolean", "deprecated": false, "autowired": false, "secret": false, "defaultValue": true, "description": "Whether autowiring is enabled. This is used for automatic autowiring options (the option must be marked as autowired) by looking up in the registry to find if there is a single instance of matching type, which then gets configured on the component. This can be used for automatic configuring JDBC data sources, JMS connection factories, AWS Clients, etc." }
+  },
+  "properties": {
+    "walletName": { "kind": "path", "displayName": "Wallet Name", "group": "producer", "label": "", "required": true, "type": "string", "javaType": "java.lang.String", "deprecated": false, "deprecationNote": "", "autowired": false, "secret": false, "configurationClass": "org.apache.camel.component.aries.HyperledgerAriesConfiguration", "configurationField": "configuration", "description": "The wallet to connect to" },
+    "lazyStartProducer": { "kind": "parameter", "displayName": "Lazy Start Producer", "group": "producer", "label": "producer", "required": false, "type": "boolean", "javaType": "boolean", "deprecated": false, "autowired": false, "secret": false, "defaultValue": false, "description": "Whether the producer should be started lazy (on the first message). By starting lazy you can use this to allow CamelContext and routes to startup in situations where a producer may otherwise fail during starting and cause the route to fail being started. By deferring this startup to be lazy then the startup failure can be handled during routing messages via Camel's routing error handlers. Beware that when the first message is processed then creating and starting the producer may take a little time and prolong the total processing time of the processing." },
+    "method": { "kind": "parameter", "displayName": "Method", "group": "producer", "label": "", "required": true, "type": "object", "javaType": "org.apache.camel.component.aries.HyperledgerAriesConfiguration.MethodId", "enum": [ "publicDid" ], "deprecated": false, "deprecationNote": "", "autowired": false, "secret": false, "configurationClass": "org.apache.camel.component.aries.HyperledgerAriesConfiguration", "configurationField": "configuration", "description": "The method to execute" },
+    "service": { "kind": "parameter", "displayName": "Service", "group": "producer", "label": "", "required": true, "type": "object", "javaType": "org.apache.camel.component.aries.HyperledgerAriesConfiguration.ServiceId", "enum": [ "wallet" ], "deprecated": false, "deprecationNote": "", "autowired": false, "secret": false, "configurationClass": "org.apache.camel.component.aries.HyperledgerAriesConfiguration", "configurationField": "configuration", "description": "The service to call" },
+    "walletCreate": { "kind": "parameter", "displayName": "Wallet Create", "group": "producer", "label": "", "required": false, "type": "boolean", "javaType": "boolean", "deprecated": false, "autowired": false, "secret": false, "defaultValue": false, "configurationClass": "org.apache.camel.component.aries.HyperledgerAriesConfiguration", "configurationField": "configuration", "description": "Enable wallet creation on-demand" },
+    "walletRemove": { "kind": "parameter", "displayName": "Wallet Remove", "group": "producer", "label": "", "required": false, "type": "boolean", "javaType": "boolean", "deprecated": false, "autowired": false, "secret": false, "defaultValue": false, "configurationClass": "org.apache.camel.component.aries.HyperledgerAriesConfiguration", "configurationField": "configuration", "description": "Enable wallet removal on shutdown" },
+    "walletRole": { "kind": "parameter", "displayName": "Wallet Role", "group": "producer", "label": "", "required": false, "type": "object", "javaType": "org.hyperledger.aries.api.ledger.IndyLedgerRoles", "enum": [ "STEWARD", "TRUSTEE", "ENDORSER", "NETWORK_MONITOR", "RESET" ], "deprecated": false, "autowired": false, "secret": false, "configurationClass": "org.apache.camel.component.aries.HyperledgerAriesConfiguration", "configurationField": "configuration", "description": "The wallet wallet role when created on demand" }
+  }
+}

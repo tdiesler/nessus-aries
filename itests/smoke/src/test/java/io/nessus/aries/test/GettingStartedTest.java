@@ -63,8 +63,9 @@ import io.nessus.aries.coms.WebSockets;
 import io.nessus.aries.util.AttachmentKey;
 import io.nessus.aries.util.AttachmentSupport;
 import io.nessus.aries.wallet.ConnectionHelper;
-import io.nessus.aries.wallet.CredentialProposalHelper;
 import io.nessus.aries.wallet.ConnectionHelper.ConnectionResult;
+import io.nessus.aries.wallet.CredentialProposalHelper;
+import io.nessus.aries.wallet.WalletBuilder;
 import okhttp3.WebSocket;
 
 /**
@@ -356,7 +357,7 @@ public class GettingStartedTest extends AbstractAriesTest {
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(Arrays.asList(), ev -> log.warn("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(walletRegistry)
+                .walletRegistry(getWalletRegistry())
                 .build());
         
         ctx.putAttachment(Government, wallet);
@@ -377,7 +378,7 @@ public class GettingStartedTest extends AbstractAriesTest {
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(walletRegistry)
+                .walletRegistry(getWalletRegistry())
                 .build());
         
         ctx.putAttachment(Faber, wallet);
@@ -398,7 +399,7 @@ public class GettingStartedTest extends AbstractAriesTest {
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(walletRegistry)
+                .walletRegistry(getWalletRegistry())
                 .build());
         
         ctx.putAttachment(Acme, wallet);
@@ -419,7 +420,7 @@ public class GettingStartedTest extends AbstractAriesTest {
 
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(walletRegistry)
+                .walletRegistry(getWalletRegistry())
                 .build());
         
         ctx.putAttachment(Thrift, wallet);
@@ -435,7 +436,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         
         WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
                 .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(walletRegistry)
+                .walletRegistry(getWalletRegistry())
                 .build());
         
         ctx.putAttachment(Alice, wallet);

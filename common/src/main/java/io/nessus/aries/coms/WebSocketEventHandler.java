@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
-import io.nessus.aries.Configuration;
+import io.nessus.aries.AriesClientFactory;
 import io.nessus.aries.coms.FilteringEventSubscriber.EventSubscriberSpec;
 import io.nessus.aries.util.SafeConsumer;
 import io.nessus.aries.wallet.WalletRegistry;
@@ -182,7 +182,7 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
         }
         
         public AriesClient createClient() throws IOException {
-            return Configuration.createClient(getThisWallet());
+            return AriesClientFactory.createClient(getThisWallet());
         }
         
         public String getTopic() {

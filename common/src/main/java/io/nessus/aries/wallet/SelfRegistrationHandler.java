@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
-import io.nessus.aries.coms.HttpClient;
+import io.nessus.aries.HttpClientFactory;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -30,7 +30,7 @@ public class SelfRegistrationHandler {
 
     public SelfRegistrationHandler(String url) {
         this.networkURL = url;
-        this.httpClient = HttpClient.createHttpClient();
+        this.httpClient = HttpClientFactory.createHttpClient();
     }
 
     public boolean registerWithDID(String alias, String did, String verkey, IndyLedgerRoles role) throws IOException {

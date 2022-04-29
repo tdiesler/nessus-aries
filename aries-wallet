@@ -3,7 +3,7 @@
 set -e
 
 help() {
-  echo "Usage: $0 --[create|list|remove|switch] myname [--wallet-key mykey] [--leder-role ENDORSER]"
+  echo "Usage: $0 --[create|create-all|list|remove|switch] name [--wallet-key mykey] [--leder-role ENDORSER]"
 }
 
 # Host and Port for the VON-Network

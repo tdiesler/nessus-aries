@@ -2,7 +2,8 @@ package io.nessus.aries.coms;
 
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 
-import io.nessus.aries.Configuration;
+import io.nessus.aries.AgentConfiguration;
+import io.nessus.aries.HttpClientFactory;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.WebSocket;
@@ -13,15 +14,19 @@ public final class WebSockets {
     // Hide ctor
     private WebSockets() {}
 
-    public static final OkHttpClient httpClient = HttpClient.createHttpClient();
+    public static final OkHttpClient httpClient = HttpClientFactory.createHttpClient();
 
-    public static WebSocket createWebSocket(WalletRecord thisWallet, WebSocketEventHandler handler) {
-        handler.init(thisWallet);
-        String walletName = thisWallet.getSettings().getWalletName();
+    public static WebSocket createWebSocket(WalletRecord wallet, WebSocketEventHandler handler) {
+        return createWebSocket(AgentConfiguration.defaultConfiguration(), wallet, handler);
+    }
+    
+    public static WebSocket createWebSocket(AgentConfiguration config, WalletRecord wallet, WebSocketEventHandler handler) {
+        handler.init(wallet);
+        String walletName = wallet.getSettings().getWalletName();
         WebSocket webSocket = httpClient.newWebSocket(new Request.Builder()
-                .url("ws://localhost:8031/ws")
-                .header("X-API-Key", Configuration.ACAPY_API_KEY)
-                .header("Authorization", "Bearer " + thisWallet.getToken())
+                .url(config.getWebSocketUrl())
+                .header("X-API-Key", config.getApiKey())
+                .header("Authorization", "Bearer " + wallet.getToken())
                 .build(), new WebSocketListener(walletName, handler));
         return webSocket;
     }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.nessus.aries.wallet.ConnectionHelper;
+import io.nessus.aries.wallet.WalletBuilder;
 import io.nessus.aries.wallet.ConnectionHelper.ConnectionResult;
 
 /**

@@ -16,6 +16,8 @@ import org.hyperledger.aries.api.out_of_band.ReceiveInvitationFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.wallet.WalletBuilder;
+
 /**
  * Test RFC 0434: Out-of-Band Protocol 1.1
  * 

@@ -9,6 +9,8 @@ import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.wallet.WalletBuilder;
+
 /**
  */
 public class OnboardFaberTest extends AbstractAriesTest {

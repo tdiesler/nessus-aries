@@ -30,7 +30,7 @@
     <artifactId>nessus-aries</artifactId>
     <packaging>pom</packaging>
 
-    <version>1.0.0.fuse-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
 
     <description>Hyperledger Aries Integration</description>
     <url>https://github.com/tdiesler/nessus-aries</url>
@@ -47,13 +47,13 @@
     <properties>
 
         <!-- Camel versions -->
-        <version.apache.camel>3.11.5</version.apache.camel>
+        <version.apache.camel>3.16.0</version.apache.camel>
         
         <!-- Other versions -->
 		<version.acapy.client>0.7.24-SNAPSHOT</version.acapy.client>   
         <version.slf4j>1.7.33</version.slf4j>
+        <version.snakeyaml>1.30</version.snakeyaml>
         <version.log4j>2.17.1</version.log4j>
-        <version.nessus.common>1.2.0</version.nessus.common>
         <version.junit>5.7.2</version.junit>
 
         <!-- 
@@ -82,6 +82,7 @@
 
     <!-- Modules -->
     <modules>
+        <module>camel</module>
         <module>common</module>
         <module>itests</module>
     </modules>
@@ -89,11 +90,6 @@
 	<!-- Dependency Management -->
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>io.nessus</groupId>
-                <artifactId>nessus-common-core</artifactId>
-                <version>${version.nessus.common}</version>
-            </dependency>
             <dependency>
                 <groupId>org.apache.camel</groupId>
                 <artifactId>camel-parent</artifactId>
@@ -121,8 +117,12 @@
 	            <groupId>org.junit.jupiter</groupId>
 	            <artifactId>junit-jupiter-engine</artifactId>
 	            <version>${version.junit}</version>
-	            <scope>test</scope>
 	        </dependency>
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${version.snakeyaml}</version>            
+            </dependency>
         </dependencies>
     </dependencyManagement>
     
@@ -131,6 +131,11 @@
         <!-- Plugin Management -->
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.camel</groupId>
+                    <artifactId>camel-package-maven-plugin</artifactId>
+                    <version>${version.apache.camel}</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>

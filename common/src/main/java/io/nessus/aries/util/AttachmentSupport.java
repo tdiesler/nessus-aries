@@ -5,8 +5,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import io.nessus.common.AssertArg;
-
 public class AttachmentSupport implements Attachments {
 
     private Map<AttachmentKey<? extends Object>, Object> attachments;

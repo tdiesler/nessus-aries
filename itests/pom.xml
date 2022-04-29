@@ -27,7 +27,7 @@
 	<parent>
 		<groupId>io.nessus.aries</groupId>
 		<artifactId>nessus-aries</artifactId>
-		<version>1.0.0.fuse-SNAPSHOT</version>
+		<version>0.1.0-SNAPSHOT</version>
 	</parent>
 
     <name>Nessus Aries :: Tests</name>
