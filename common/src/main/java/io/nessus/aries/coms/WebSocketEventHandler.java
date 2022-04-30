@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.SubmissionPublisher;
 
@@ -66,16 +65,16 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
         }
     }
 
-    public Optional<WalletRecord> getWallet(String walletId) {
-        Optional<WalletRecord> result = Optional.ofNullable(null);
+    public WalletRecord getWallet(String walletId) {
+        WalletRecord result = null;
         if (walletRegistry != null) 
             result = walletRegistry.getWallet(walletId);
         return result;
     }
     
     public String getWalletName(String walletId) {
-        Optional<WalletRecord> optional = getWallet(walletId);
-        return optional.isPresent() ? optional.get().getSettings().getWalletName() : walletId;
+        WalletRecord wallet = getWallet(walletId);
+        return wallet != null ? wallet.getSettings().getWalletName() : walletId;
     }
     
     public String getThisWalletId() {

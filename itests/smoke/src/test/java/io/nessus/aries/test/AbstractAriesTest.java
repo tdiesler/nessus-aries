@@ -13,22 +13,17 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 
 import io.nessus.aries.AriesClientFactory;
-import io.nessus.aries.HttpClientFactory;
 import io.nessus.aries.coms.WebSockets;
 import io.nessus.aries.wallet.WalletBuilder;
 import io.nessus.aries.wallet.WalletRegistry;
-import okhttp3.OkHttpClient;
 import okhttp3.WebSocket;
 
 public abstract class AbstractAriesTest {
 
-    public final Logger log = LoggerFactory.getLogger(getClass());
+    protected final Logger log = LoggerFactory.getLogger(getClass());
     
-    public static final OkHttpClient httpClient = HttpClientFactory.createHttpClient();
-
-    public static final AriesClient baseClient = AriesClientFactory.baseClient();
     public static final Gson gson = GsonConfig.defaultConfig();
-
+    
     /**
      * Create a client for a multitenant wallet
      */
@@ -52,6 +47,7 @@ public abstract class AbstractAriesTest {
             String walletName = wallet.getSettings().getWalletName();
             log.info("{} Remove Wallet", walletName);
             getWalletRegistry().removeWallet(walletId);
+            AriesClient baseClient = AriesClientFactory.baseClient();
             baseClient.multitenancyWalletRemove(walletId, RemoveWalletRequest.builder()
                     .walletKey(wallet.getToken())
                     .build());

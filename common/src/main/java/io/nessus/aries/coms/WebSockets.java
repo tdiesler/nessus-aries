@@ -37,8 +37,10 @@ public final class WebSockets {
         return listener.getEventHandler();
     }
     
-    public static void closeWebSocket(WebSocket ws) {
-        getEventHandler(ws).close();
-        ws.close(1000, "Going down");
+    public static void closeWebSocket(WebSocket wsocket) {
+        if (wsocket != null) {
+            getEventHandler(wsocket).close();
+            wsocket.close(1000, "Going down");
+        }
     }
 }

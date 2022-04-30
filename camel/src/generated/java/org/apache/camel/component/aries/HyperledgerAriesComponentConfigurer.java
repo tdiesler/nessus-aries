@@ -25,6 +25,8 @@ public class HyperledgerAriesComponentConfigurer extends PropertyConfigurerSuppo
         case "autowiredEnabled": target.setAutowiredEnabled(property(camelContext, boolean.class, value)); return true;
         case "lazystartproducer":
         case "lazyStartProducer": target.setLazyStartProducer(property(camelContext, boolean.class, value)); return true;
+        case "removewalletsonshutdown":
+        case "removeWalletsOnShutdown": target.setRemoveWalletsOnShutdown(property(camelContext, boolean.class, value)); return true;
         default: return false;
         }
     }
@@ -36,6 +38,8 @@ public class HyperledgerAriesComponentConfigurer extends PropertyConfigurerSuppo
         case "autowiredEnabled": return boolean.class;
         case "lazystartproducer":
         case "lazyStartProducer": return boolean.class;
+        case "removewalletsonshutdown":
+        case "removeWalletsOnShutdown": return boolean.class;
         default: return null;
         }
     }
@@ -48,6 +52,8 @@ public class HyperledgerAriesComponentConfigurer extends PropertyConfigurerSuppo
         case "autowiredEnabled": return target.isAutowiredEnabled();
         case "lazystartproducer":
         case "lazyStartProducer": return target.isLazyStartProducer();
+        case "removewalletsonshutdown":
+        case "removeWalletsOnShutdown": return target.isRemoveWalletsOnShutdown();
         default: return null;
         }
     }

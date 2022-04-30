@@ -21,14 +21,10 @@ public class HyperledgerAriesEndpointUriFactory extends org.apache.camel.support
     private static final Set<String> SECRET_PROPERTY_NAMES;
     private static final Set<String> MULTI_VALUE_PREFIXES;
     static {
-        Set<String> props = new HashSet<>(7);
+        Set<String> props = new HashSet<>(3);
         props.add("lazyStartProducer");
-        props.add("walletRemove");
-        props.add("method");
-        props.add("walletName");
+        props.add("wallet");
         props.add("service");
-        props.add("walletRole");
-        props.add("walletCreate");
         PROPERTY_NAMES = Collections.unmodifiableSet(props);
         SECRET_PROPERTY_NAMES = Collections.emptySet();
         MULTI_VALUE_PREFIXES = Collections.emptySet();
@@ -46,7 +42,7 @@ public class HyperledgerAriesEndpointUriFactory extends org.apache.camel.support
 
         Map<String, Object> copy = new HashMap<>(properties);
 
-        uri = buildPathParameter(syntax, uri, "walletName", null, true, copy);
+        uri = buildPathParameter(syntax, uri, "wallet", null, true, copy);
         uri = buildQueryParameters(uri, copy, encode);
         return uri;
     }

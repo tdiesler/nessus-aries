@@ -16,34 +16,24 @@
  */
 package org.apache.camel.component.aries;
 
-import org.apache.camel.spi.Metadata;
-import org.apache.camel.spi.UriParam;
-import org.apache.camel.spi.UriParams;
-import org.apache.camel.spi.UriPath;
+import java.util.Arrays;
 
-@UriParams
-public class HyperledgerAriesConfiguration {
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-    @UriPath(description = "The wallet to connect to")
-    @Metadata(required = true)
-    private String wallet;
-    @UriParam(description = "The path to call")
-    @Metadata(required = false)
-    private String service;
+public abstract class AbstractHyperledgerAriesTest extends CamelTestSupport {
 
-    public String getWallet() {
-        return wallet;
+    protected final Logger log = LoggerFactory.getLogger(getClass());
+    
+    protected HyperledgerAriesComponent getComponent() {
+        return context.getComponent("hyperledger-aries", HyperledgerAriesComponent.class);
     }
 
-    public void setWallet(String name) {
-        this.wallet = name;
-    }
-
-    public String getService() {
-        return service;
-    }
-
-    public void setService(String path) {
-        this.service = path;
+    void logSection(String title) {
+        int len = 119 - title.length();
+        char[] tail = new char[len];
+        Arrays.fill(tail, '=');
+        log.info("{} {}", title, String.valueOf(tail));
     }
 }

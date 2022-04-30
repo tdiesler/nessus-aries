@@ -23,14 +23,7 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
         switch (ignoreCase ? name.toLowerCase() : name) {
         case "lazystartproducer":
         case "lazyStartProducer": target.setLazyStartProducer(property(camelContext, boolean.class, value)); return true;
-        case "method": target.getConfiguration().setMethod(property(camelContext, org.apache.camel.component.aries.HyperledgerAriesConfiguration.MethodId.class, value)); return true;
-        case "service": target.getConfiguration().setService(property(camelContext, org.apache.camel.component.aries.HyperledgerAriesConfiguration.ServiceId.class, value)); return true;
-        case "walletcreate":
-        case "walletCreate": target.getConfiguration().setWalletCreate(property(camelContext, boolean.class, value)); return true;
-        case "walletremove":
-        case "walletRemove": target.getConfiguration().setWalletRemove(property(camelContext, boolean.class, value)); return true;
-        case "walletrole":
-        case "walletRole": target.getConfiguration().setWalletRole(property(camelContext, org.hyperledger.aries.api.ledger.IndyLedgerRoles.class, value)); return true;
+        case "service": target.getConfiguration().setService(property(camelContext, java.lang.String.class, value)); return true;
         default: return false;
         }
     }
@@ -40,14 +33,7 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
         switch (ignoreCase ? name.toLowerCase() : name) {
         case "lazystartproducer":
         case "lazyStartProducer": return boolean.class;
-        case "method": return org.apache.camel.component.aries.HyperledgerAriesConfiguration.MethodId.class;
-        case "service": return org.apache.camel.component.aries.HyperledgerAriesConfiguration.ServiceId.class;
-        case "walletcreate":
-        case "walletCreate": return boolean.class;
-        case "walletremove":
-        case "walletRemove": return boolean.class;
-        case "walletrole":
-        case "walletRole": return org.hyperledger.aries.api.ledger.IndyLedgerRoles.class;
+        case "service": return java.lang.String.class;
         default: return null;
         }
     }
@@ -58,14 +44,7 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
         switch (ignoreCase ? name.toLowerCase() : name) {
         case "lazystartproducer":
         case "lazyStartProducer": return target.isLazyStartProducer();
-        case "method": return target.getConfiguration().getMethod();
         case "service": return target.getConfiguration().getService();
-        case "walletcreate":
-        case "walletCreate": return target.getConfiguration().isWalletCreate();
-        case "walletremove":
-        case "walletRemove": return target.getConfiguration().isWalletRemove();
-        case "walletrole":
-        case "walletRole": return target.getConfiguration().getWalletRole();
         default: return null;
         }
     }

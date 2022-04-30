@@ -73,7 +73,7 @@ public class WalletBuilder {
         return this;
     }
     
-    private boolean selfRegisterWithDid(String alias, String did, String vkey, IndyLedgerRoles role) throws IOException {
+    public static boolean selfRegisterWithDid(String alias, String did, String vkey, IndyLedgerRoles role) throws IOException {
         return new SelfRegistrationHandler("http://localhost:9000/register")
             .registerWithDID(alias, did, vkey, role);
     }
