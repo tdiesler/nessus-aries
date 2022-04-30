@@ -86,18 +86,10 @@ public class GettingStartedTest extends AbstractAriesTest {
     
     class Context extends AttachmentSupport {
 
-        DID getDID(String name) {
-            return getAttachment(name, DID.class);
-        }
-        
         ConnectionRecord getConnection(String inviter, String invitee) {
             return getAttachment(inviter + invitee + "Connection", ConnectionRecord.class);
         }
 
-        String getIdentifier(String name) {
-            return getAttachment(name, String.class);
-        }
-        
         WalletRecord getWallet(String name) {
             return getAttachment(name, WalletRecord.class);
         }
@@ -460,11 +452,11 @@ public class GettingStartedTest extends AbstractAriesTest {
 
         logSection("Create Transcript Schema");
         
-        // Government creates the Transcript Credential Schema and sends it to the Ledger
+        // Faber creates the Transcript Credential Schema and sends it to the Ledger
         // It can do so with it's Endorser role
 
         // Create client for sub wallet
-        AriesClient client = createClient(ctx.getWallet(Government));
+        AriesClient client = createClient(ctx.getWallet(Faber));
 
         SchemaSendResponse schemaResponse = client.schemas(SchemaSendRequest.builder()
                 .schemaVersion("1.2")
@@ -487,11 +479,11 @@ public class GettingStartedTest extends AbstractAriesTest {
 
         logSection("Create Job Certificate Schema");
         
-        // Government creates the Job-Certificate Credential Schema and sends it to the Ledger
+        // Acme creates the Job-Certificate Credential Schema and sends it to the Ledger
         // It can do so with it's Trustee role
 
         // Create client for sub wallet
-        AriesClient client = createClient(ctx.getWallet(Government));
+        AriesClient client = createClient(ctx.getWallet(Acme));
 
         SchemaSendResponse schemaResponse = client.schemas(SchemaSendRequest.builder()
                 .schemaVersion("0.2")
@@ -515,7 +507,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         // 1. Faber get the Transcript Credential Schema
 
         AriesClient faber = createClient(ctx.getWallet(Faber));
-        Schema schema = faber.schemasGetById(ctx.getIdentifier(TranscriptSchemaId)).get();
+        Schema schema = faber.schemasGetById(ctx.getAttachment(TranscriptSchemaId, String.class)).get();
         log.info("{}", schema);
 
         // 2. Faber creates the Credential Definition related to the received Credential Schema and send it to the ledger
@@ -536,7 +528,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         // 1. Acme get the Transcript Credential Schema
 
         AriesClient acme = createClient(ctx.getWallet(Acme));
-        Schema schema = acme.schemasGetById(ctx.getIdentifier(JobCertificateSchemaId)).get();
+        Schema schema = acme.schemasGetById(ctx.getAttachment(JobCertificateSchemaId, String.class)).get();
         log.info("{}", schema);
 
         // 2. Acme creates the Credential Definition related to the received Credential Schema and send it to the ledger
@@ -615,7 +607,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * The value of this Transcript Credential is that it is provably issued by Faber College
          */
         
-        String transcriptCredDefId = ctx.getIdentifier(TranscriptCredDefId);
+        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId, String.class);
         faber.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
                 .connectionId(faberAliceConnectionId)
                 .credentialDefinitionId(transcriptCredDefId)
@@ -736,7 +728,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * Alice’s own credential about her names and phone number.
          */
         
-        String transcriptCredDefId = ctx.getIdentifier(TranscriptCredDefId);
+        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId, String.class);
         String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
         
         Function<String, ProofRequestedAttributes> proofReqAttr = name -> ProofRequestedAttributes.builder().name(name).build();
@@ -894,7 +886,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * is verifiably proves that the holder is employed by Acme
          */
         
-        String transcriptCredDefId = ctx.getIdentifier(JobCertificateCredDefId);
+        String transcriptCredDefId = ctx.getAttachment(JobCertificateCredDefId, String.class);
         acme.issueCredentialSendOffer(V1CredentialOfferRequest.builder()
                 .connectionId(acmeAliceConnectionId)
                 .credentialDefinitionId(transcriptCredDefId)
@@ -1007,7 +999,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * Note, that the Job-Certificate should not have been revoked at the time of application.
          */
         
-        String jobCertificateCredDefId = ctx.getIdentifier(JobCertificateCredDefId);
+        String jobCertificateCredDefId = ctx.getAttachment(JobCertificateCredDefId, String.class);
         String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
         
         Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
@@ -1156,7 +1148,7 @@ public class GettingStartedTest extends AbstractAriesTest {
          * 
          */
         
-        String transcriptCredDefId = ctx.getIdentifier(TranscriptCredDefId);
+        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId, String.class);
         String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
         
         Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
@@ -1275,7 +1267,7 @@ public class GettingStartedTest extends AbstractAriesTest {
         AriesClient acme = createClient(acmeWallet);
         
         String connectionId = ctx.getConnection(Acme, Alice).getConnectionId();
-        String jobCertificateCredDefId = ctx.getIdentifier(JobCertificateCredDefId);
+        String jobCertificateCredDefId = ctx.getAttachment(JobCertificateCredDefId, String.class);
         Predicate<String> matchCredDefId = cdid -> cdid.equals(jobCertificateCredDefId);
         V1CredentialExchange credex = acme.issueCredentialRecords(IssueCredentialRecordsFilter.builder()
                 .connectionId(connectionId)

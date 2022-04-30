@@ -16,6 +16,8 @@
  */
 package org.apache.camel.component.aries;
 
+import java.io.IOException;
+
 import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
@@ -23,8 +25,15 @@ import org.apache.camel.Producer;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.support.DefaultEndpoint;
+import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.nessus.aries.AgentConfiguration;
+import io.nessus.aries.AriesClientFactory;
+import io.nessus.aries.util.AssertArg;
+import io.nessus.aries.util.AssertState;
 
 /**
  * Access market data and trade on Bitcoin and Altcoin exchanges.
@@ -59,5 +68,30 @@ public class HyperledgerAriesEndpoint extends DefaultEndpoint {
 
     public HyperledgerAriesConfiguration getConfiguration() {
         return configuration;
+    }
+    
+    public String getWalletName() {
+        return getConfiguration().getWallet();
+    }
+    
+    public WalletRecord getWalletRecord() {
+        return getComponent().getWalletByName(getWalletName());
+    }
+    
+    public AriesClient baseClient() {
+        AgentConfiguration agentConfig = getComponent().getAgentConfiguration();
+        return AriesClientFactory.baseClient(agentConfig);
+    }
+    
+    public AriesClient createClient() throws IOException {
+        WalletRecord walletRecord = getWalletRecord();
+        AssertState.notNull(walletRecord, "No WalletRecord for: " + getWalletRecord());
+        return createClient(walletRecord);
+    }
+
+    public AriesClient createClient(WalletRecord walletRecord) throws IOException {
+        AssertArg.notNull(walletRecord, "No WalletRecord");
+        AgentConfiguration agentConfig = getComponent().getAgentConfiguration();
+        return AriesClientFactory.createClient(walletRecord, agentConfig);
     }
 }

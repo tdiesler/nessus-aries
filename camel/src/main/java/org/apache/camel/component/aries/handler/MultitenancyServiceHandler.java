@@ -24,8 +24,8 @@ public class MultitenancyServiceHandler extends AbstractServiceHandler {
     @Override
     public void process(Exchange exchange) throws Exception {
         if (service.equals("/multitenancy/wallet")) {
-            CreateWalletRequest walletRequest = assertBody(exchange, CreateWalletRequest.class);
-            WalletRecord walletRecord = baseClient().multitenancyWalletCreate(walletRequest).get();
+            CreateWalletRequest reqObj = assertBody(exchange, CreateWalletRequest.class);
+            WalletRecord walletRecord = baseClient().multitenancyWalletCreate(reqObj).get();
             String walletName = walletRecord.getSettings().getWalletName();
             getComponent().addWallet(walletRecord);
             exchange.getIn().setBody(walletRecord);

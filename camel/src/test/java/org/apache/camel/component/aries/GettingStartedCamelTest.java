@@ -18,16 +18,24 @@ package org.apache.camel.component.aries;
 
 import static org.apache.camel.component.aries.Constants.HEADER_MULTITENANCY_WALLET_REGISTER_NYM;
 import static org.apache.camel.component.aries.Constants.HEADER_MULTITENANCY_WALLET_ROLE;
+import static org.apache.camel.component.aries.Constants.HEADER_SERVICE;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.camel.builder.RouteBuilder;
+import org.hyperledger.acy_py.generated.model.IssuerRevRegRecord;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
+import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionRequest;
+import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
 import org.hyperledger.aries.api.multitenancy.CreateWalletRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import org.hyperledger.aries.api.revocation.RevRegCreateRequest;
+import org.hyperledger.aries.api.schema.SchemaSendRequest;
+import org.hyperledger.aries.api.schema.SchemaSendResponse;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -82,14 +90,6 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
             return getAttachment(inviter + invitee + "Connection", ConnectionRecord.class);
         }
 
-        String getStringIdentifier(String name) {
-            return getAttachment(name, String.class);
-        }
-        
-        WalletRecord getWallet(String name) {
-            return getAttachment(name, WalletRecord.class);
-        }
-        
         WebSocket getWebSocket(String name) {
             return getAttachment(name, WebSocket.class);
         }
@@ -173,8 +173,8 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * other elaborate constructs.
          */
 
-//        createTranscriptSchema(ctx);
-//        createJobCertificateSchema(ctx);
+        createTranscriptSchema(ctx);
+        createJobCertificateSchema(ctx);
 
         /*
          * Creating Credential Definitions
@@ -194,8 +194,8 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * A Credential Definition can be created and saved in the Ledger an Endorser.
          */
 
-//        createTranscriptCredentialDefinition(ctx);
-//        createJobCertificateCredentialDefinition(ctx);
+        createTranscriptCredentialDefinition(ctx);
+        createJobCertificateCredentialDefinition(ctx);
 
         /*
          * Create a peer connection between Alice/Faber
@@ -396,15 +396,112 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
     }
 
     void createTranscriptSchema(WalktroughContext ctx) {
+        
+        logSection("Create Transcript Schema");
+        
+        // Faber creates the Transcript Credential Schema and sends it to the Ledger
+        // It can do so with it's Endorser role
+
+        SchemaSendRequest schemaRequest = SchemaSendRequest.builder()
+                .schemaVersion("1.2")
+                .schemaName("Transcript")
+                .attributes(Arrays.asList(
+                        "first_name", 
+                        "last_name",
+                        "ssn",
+                        "degree", 
+                        "status", 
+                        "year", 
+                        "average"))
+                .build();
+        
+        SchemaSendResponse schemaResponse = template.requestBodyAndHeaders("direct:faber", schemaRequest, Map.of(
+                HEADER_SERVICE, "/schemas"), 
+                SchemaSendResponse.class);
+        log.info("{}", schemaResponse);
+
+        ctx.putAttachment(TranscriptSchemaId, schemaResponse.getSchemaId());
     }
 
     void createJobCertificateSchema(WalktroughContext ctx) {
+
+        logSection("Create Job Certificate Schema");
+        
+        // Acme creates the Job-Certificate Credential Schema and sends it to the Ledger
+        // It can do so with it's Trustee role
+
+        SchemaSendRequest schemaRequest = SchemaSendRequest.builder()
+                .schemaVersion("0.2")
+                .schemaName("Job-Certificate")
+                .attributes(Arrays.asList(
+                        "first_name", 
+                        "last_name", 
+                        "salary", 
+                        "employee_status", 
+                        "experience"))
+                .build();
+
+        SchemaSendResponse schemaResponse = template.requestBodyAndHeaders("direct:acme", schemaRequest, Map.of(
+                HEADER_SERVICE, "/schemas"), 
+                SchemaSendResponse.class);
+        log.info("{}", schemaResponse);
+
+        ctx.putAttachment(JobCertificateSchemaId, schemaResponse.getSchemaId());
     }
 
     void createTranscriptCredentialDefinition(WalktroughContext ctx) {
+
+        logSection("Create Transcript CredDef");
+        
+        // 1. Faber creates the Transcript Credential Definition
+
+        CredentialDefinitionRequest credDefRequest = CredentialDefinitionRequest.builder()
+                .schemaId(ctx.getAttachment(TranscriptSchemaId, String.class))
+                .supportRevocation(false)
+                .build();
+
+        CredentialDefinitionResponse credDefResponse = template.requestBodyAndHeaders("direct:faber", credDefRequest, Map.of(
+                HEADER_SERVICE, "/credential-definitions"), 
+                CredentialDefinitionResponse.class);
+        log.info("{}", credDefResponse);
+
+        ctx.putAttachment(TranscriptCredDefId, credDefResponse.getCredentialDefinitionId());
     }
 
     void createJobCertificateCredentialDefinition(WalktroughContext ctx) {
+
+        logSection("Create Job Certificate CredDef");
+        
+        // 1. Acme creates the Job-Certificate Credential Definition
+
+        CredentialDefinitionRequest credDefRequest = CredentialDefinitionRequest.builder()
+                .schemaId(ctx.getAttachment(JobCertificateSchemaId, String.class))
+                .supportRevocation(true)
+                .build();
+
+        CredentialDefinitionResponse credDefResponse = template.requestBodyAndHeaders("direct:acme", credDefRequest, Map.of(
+                HEADER_SERVICE, "/credential-definitions"), 
+                CredentialDefinitionResponse.class);
+        log.info("{}", credDefResponse);
+        
+        ctx.putAttachment(JobCertificateCredDefId, credDefResponse.getCredentialDefinitionId());
+
+        /* 2. Acme creates a Revocation Registry for the given Credential Definition.
+         * 
+         * The issuer anticipates revoking Job-Certificate credentials. It decides to create a revocation registry.
+         * 
+         * One of Hyperledger Indy’s revocation registry types uses cryptographic accumulators for publishing revoked credentials. 
+         * The use of those accumulators requires the publication of “validity tails” outside of the Ledger.
+         */
+
+        RevRegCreateRequest revocRegistryRequest = RevRegCreateRequest.builder()
+                .credentialDefinitionId(ctx.getAttachment(JobCertificateCredDefId, String.class))
+                .build();
+        
+        IssuerRevRegRecord revocRegistryRecord = template.requestBodyAndHeaders("direct:acme", revocRegistryRequest, Map.of(
+                HEADER_SERVICE, "/revocation/create-registry"), 
+                IssuerRevRegRecord.class);
+        log.info("{}", revocRegistryRecord);
     }
 
     void getTranscriptFromFaber(WalktroughContext ctx) {

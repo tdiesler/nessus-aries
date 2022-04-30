@@ -19,15 +19,22 @@ package org.apache.camel.component.aries;
 import static org.apache.camel.component.aries.Constants.HEADER_SERVICE;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.component.aries.handler.AbstractServiceHandler;
+import org.apache.camel.component.aries.handler.CredentialDefinitionsServiceHandler;
 import org.apache.camel.component.aries.handler.MultitenancyServiceHandler;
-import org.apache.camel.component.aries.handler.ServiceHandler;
+import org.apache.camel.component.aries.handler.RevocationServiceHandler;
+import org.apache.camel.component.aries.handler.SchemasServiceHandler;
 import org.apache.camel.component.aries.handler.WalletServiceHandler;
 import org.apache.camel.support.DefaultProducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.nessus.aries.util.AssertState;
 
 public class HyperledgerAriesProducer extends DefaultProducer {
 
+    static final Logger log = LoggerFactory.getLogger(HyperledgerAriesEndpoint.class);
+    
     public HyperledgerAriesProducer(HyperledgerAriesEndpoint endpoint) {
         super(endpoint);
     }
@@ -40,18 +47,34 @@ public class HyperledgerAriesProducer extends DefaultProducer {
     @Override
     public void process(Exchange exchange) throws Exception {
 
-        ServiceHandler serviceHandler;
+        AbstractServiceHandler serviceHandler;
         
         String service = getService(exchange);
-        if (service.startsWith("/multitenancy")) {
+        if (service.startsWith("/credential-definitions")) {
+            serviceHandler = new CredentialDefinitionsServiceHandler(getEndpoint(), service);
+        }
+        else if (service.startsWith("/multitenancy")) {
             serviceHandler = new MultitenancyServiceHandler(getEndpoint(), service);
+        }
+        else if (service.startsWith("/revocation")) {
+            serviceHandler = new RevocationServiceHandler(getEndpoint(), service);
+        }
+        else if (service.startsWith("/schemas")) {
+            serviceHandler = new SchemasServiceHandler(getEndpoint(), service);
         }
         else if (service.startsWith("/wallet")) {
             serviceHandler = new WalletServiceHandler(getEndpoint(), service);
         }
         else throw new UnsupportedServiceException(service);
         
+        log.debug("{}: service={} req={}", getWalletName(), service, exchange.getIn().getBody());
         serviceHandler.process(exchange);
+        log.debug("{}: service={} res={}", getWalletName(), service, exchange.getIn().getBody());
+    }
+
+    protected String getWalletName() {
+        String walletName = getEndpoint().getWalletName();
+        return walletName;
     }
 
     private String getService(Exchange exchange) {
