@@ -16,6 +16,7 @@
  */
 package org.apache.camel.component.aries;
 
+import java.io.IOException;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
@@ -30,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import io.nessus.aries.AgentConfiguration;
 import io.nessus.aries.AriesClientFactory;
+import io.nessus.aries.util.AssertArg;
 import io.nessus.aries.wallet.WalletRegistry;
 
 @Component("hyperledger-aries")
@@ -63,10 +65,16 @@ public class HyperledgerAriesComponent extends DefaultComponent {
             AgentConfiguration agentConfig = getAgentConfiguration();
             AriesClient baseClient = AriesClientFactory.baseClient(agentConfig);
             for (WalletRecord wallet : walletRegistry.getWallets()) {
-                log.info("Remove Wallet: {}", wallet.getSettings().getWalletName());
+                String walletName = wallet.getSettings().getWalletName();
+                log.info("Remove Wallet: {}", walletName);
                 baseClient.multitenancyWalletRemove(wallet.getWalletId(), RemoveWalletRequest.builder()
                         .walletKey(wallet.getToken())
                         .build());
+                // Wait for the wallet to get removed 
+                Thread.sleep(500); 
+                while (!baseClient.multitenancyWallets(walletName).get().isEmpty()) {
+                    Thread.sleep(500); 
+                }
             }
         }
     }
@@ -96,5 +104,16 @@ public class HyperledgerAriesComponent extends DefaultComponent {
     
     public WalletRecord getWalletByName(String walletName) {
         return walletRegistry.getWalletByName(walletName);
+    }
+
+    public AriesClient baseClient() {
+        AgentConfiguration agentConfig = getAgentConfiguration();
+        return AriesClientFactory.baseClient(agentConfig);
+    }
+    
+    public AriesClient createClient(WalletRecord walletRecord) throws IOException {
+        AssertArg.notNull(walletRecord, "No WalletRecord");
+        AgentConfiguration agentConfig = getAgentConfiguration();
+        return AriesClientFactory.createClient(walletRecord, agentConfig);
     }
 }

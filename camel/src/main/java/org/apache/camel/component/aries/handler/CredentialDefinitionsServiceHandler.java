@@ -8,12 +8,12 @@ import org.hyperledger.aries.api.credential_definition.CredentialDefinition.Cred
 
 public class CredentialDefinitionsServiceHandler extends AbstractServiceHandler {
     
-    public CredentialDefinitionsServiceHandler(HyperledgerAriesEndpoint endpoint, String service) {
-        super(endpoint, service);
+    public CredentialDefinitionsServiceHandler(HyperledgerAriesEndpoint endpoint) {
+        super(endpoint);
     }
 
     @Override
-    public void process(Exchange exchange) throws Exception {
+    public void process(Exchange exchange, String service) throws Exception {
         if (service.equals("/credential-definitions")) {
             CredentialDefinitionRequest reqObj = assertBody(exchange, CredentialDefinitionRequest.class);
             CredentialDefinitionResponse resObj = createClient().credentialDefinitionsCreate(reqObj).get();

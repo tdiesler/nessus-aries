@@ -19,18 +19,23 @@ package org.apache.camel.component.aries;
 import java.util.Arrays;
 
 import org.apache.camel.test.junit5.CamelTestSupport;
+import org.hyperledger.aries.config.GsonConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.gson.Gson;
 
 public abstract class AbstractHyperledgerAriesTest extends CamelTestSupport {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
+    public static final Gson gson = GsonConfig.defaultConfig();
+    
     protected HyperledgerAriesComponent getComponent() {
         return context.getComponent("hyperledger-aries", HyperledgerAriesComponent.class);
     }
 
-    void logSection(String title) {
+    protected void logSection(String title) {
         int len = 119 - title.length();
         char[] tail = new char[len];
         Arrays.fill(tail, '=');

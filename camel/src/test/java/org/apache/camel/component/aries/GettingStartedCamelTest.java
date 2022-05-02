@@ -1,48 +1,91 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.camel.component.aries;
 
-import static org.apache.camel.component.aries.Constants.HEADER_MULTITENANCY_WALLET_REGISTER_NYM;
-import static org.apache.camel.component.aries.Constants.HEADER_MULTITENANCY_WALLET_ROLE;
+import static org.apache.camel.component.aries.Constants.HEADER_MULTITENANCY_LEDGER_ROLE;
+import static org.apache.camel.component.aries.Constants.HEADER_MULTITENANCY_SELF_REGISTER_NYM;
+import static org.apache.camel.component.aries.Constants.HEADER_MULTITENANCY_TRUSTEE_WALLET;
 import static org.apache.camel.component.aries.Constants.HEADER_SERVICE;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import org.apache.camel.builder.RouteBuilder;
+import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
+import org.hyperledger.acy_py.generated.model.DID;
+import org.hyperledger.acy_py.generated.model.IndyProofReqPredSpec.PTypeEnum;
 import org.hyperledger.acy_py.generated.model.IssuerRevRegRecord;
+import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
+import org.hyperledger.aries.api.connection.ConnectionState;
+import org.hyperledger.aries.api.connection.ConnectionTheirRole;
+import org.hyperledger.aries.api.connection.CreateInvitationRequest;
+import org.hyperledger.aries.api.connection.CreateInvitationResponse;
+import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
+import org.hyperledger.aries.api.credentials.CredentialAttributes;
+import org.hyperledger.aries.api.credentials.CredentialPreview;
+import org.hyperledger.aries.api.issue_credential_v1.CredentialExchangeRole;
+import org.hyperledger.aries.api.issue_credential_v1.CredentialExchangeState;
+import org.hyperledger.aries.api.issue_credential_v1.IssueCredentialRecordsFilter;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange.CredentialProposalDict.CredentialProposal;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialIssueRequest;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialOfferRequest;
+import org.hyperledger.aries.api.issue_credential_v1.V1CredentialStoreRequest;
 import org.hyperledger.aries.api.multitenancy.CreateWalletRequest;
+import org.hyperledger.aries.api.multitenancy.WalletDispatchType;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import org.hyperledger.aries.api.multitenancy.WalletType;
+import org.hyperledger.aries.api.present_proof.PresentProofRequest;
+import org.hyperledger.aries.api.present_proof.PresentProofRequest.ProofRequest;
+import org.hyperledger.aries.api.present_proof.PresentProofRequest.ProofRequest.ProofNonRevoked;
+import org.hyperledger.aries.api.present_proof.PresentProofRequest.ProofRequest.ProofRequestedAttributes;
+import org.hyperledger.aries.api.present_proof.PresentProofRequest.ProofRequest.ProofRequestedPredicates;
+import org.hyperledger.aries.api.present_proof.PresentationExchangeRecord;
+import org.hyperledger.aries.api.present_proof.PresentationExchangeRole;
+import org.hyperledger.aries.api.present_proof.PresentationExchangeState;
+import org.hyperledger.aries.api.present_proof.PresentationRequest;
+import org.hyperledger.aries.api.present_proof.PresentationRequest.IndyRequestedCredsRequestedAttr;
+import org.hyperledger.aries.api.present_proof.PresentationRequest.IndyRequestedCredsRequestedPred;
+import org.hyperledger.aries.api.present_proof.PresentationRequestCredentials;
+import org.hyperledger.aries.api.present_proof.PresentationRequestCredentials.CredentialInfo;
+import org.hyperledger.aries.api.present_proof.PresentationRequestCredentialsFilter;
 import org.hyperledger.aries.api.revocation.RevRegCreateRequest;
+import org.hyperledger.aries.api.revocation.RevRegCreateResponse.RevocationModuleResponse;
+import org.hyperledger.aries.api.revocation.RevocationEvent;
+import org.hyperledger.aries.api.revocation.RevokeRequest;
 import org.hyperledger.aries.api.schema.SchemaSendRequest;
 import org.hyperledger.aries.api.schema.SchemaSendResponse;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.google.gson.JsonObject;
+
+import io.nessus.aries.coms.EventSubscriber;
+import io.nessus.aries.coms.WebSocketEventHandler;
+import io.nessus.aries.coms.WebSocketEventHandler.WebSocketEvent;
+import io.nessus.aries.coms.WebSockets;
+import io.nessus.aries.util.AssertState;
 import io.nessus.aries.util.AttachmentKey;
 import io.nessus.aries.util.AttachmentSupport;
+import io.nessus.aries.util.SafeConsumer;
+import io.nessus.aries.wallet.CredentialProposalHelper;
 import okhttp3.WebSocket;
 
+/**
+ * docker compose up --detach && docker compose logs -f acapy
+ */
 //@EnabledIfSystemProperty(named = "enable.aries.itests", matches = "true", disabledReason = "Requires API credentials")
 public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
 
@@ -83,8 +126,8 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
             }
         };
     }
-
-    class WalktroughContext extends AttachmentSupport {
+    
+    class WalkthroughContext extends AttachmentSupport {
 
         ConnectionRecord getConnection(String inviter, String invitee) {
             return getAttachment(inviter + invitee + "Connection", ConnectionRecord.class);
@@ -109,10 +152,17 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
     }
 
     @Test
-    void testWalktrough() throws Exception {
-
-        WalktroughContext ctx = new WalktroughContext();
+    public void testWorkflow() throws Exception {
+        WalkthroughContext ctx = new WalkthroughContext();
         getComponent().setRemoveWalletsOnShutdown(true);
+        try {
+            doWorkflow(ctx);
+        } finally {
+            closeWebSockets(ctx);
+        }
+    }
+
+    void doWorkflow(WalkthroughContext ctx) throws Exception {
         
         /*
          * Onboard Government Wallet and DID
@@ -204,7 +254,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * Instead both parties create new DIDs that they use for their peer connection 
          */
         
-//        connectPeers(ctx, Faber, Alice);
+        connectPeers(ctx, Faber, Alice);
 
         /*
          * Alice gets her Transcript from Faber College
@@ -225,7 +275,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * should not impress anyone.
          */
 
-//        getTranscriptFromFaber(ctx);
+        getTranscriptFromFaber(ctx);
 
         /*
          * Create a peer connection between Alice/Acme
@@ -234,7 +284,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          *  Instead both parties create new DIDs that they use for their peer connection 
          */
          
-//        connectPeers(ctx, Acme, Alice);
+        connectPeers(ctx, Acme, Alice);
 
         /*
          * Alice applies for a job at Acme
@@ -255,7 +305,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * the condition about the average mark or grades.
          */
 
-//        applyForJobWithAcme(ctx);
+        applyForJobWithAcme(ctx);
 
         /*
          * Alice gets the job and hence receives a JobCertificate from Acme
@@ -264,7 +314,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * JobCertificate credential can be revoked by Acme  
          */
         
-//        getJobWithAcme(ctx); 
+        getJobWithAcme(ctx); 
 
         /*
          * Create a peer connection between Alice/Faber
@@ -273,7 +323,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * Instead both parties create new DIDs that they use for their peer connection 
          */
          
-//        connectPeers(ctx, Thrift, Alice);
+        connectPeers(ctx, Thrift, Alice);
 
         /*
          * Alice applies for a loan with Thrift Bank
@@ -283,7 +333,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * offered by Acme.
          */
 
-//        applyForLoanWithThrift(ctx, true);
+        applyForLoanWithThrift(ctx, true);
 
         /*
          * Thrift accepts the loan application and now requires KYC
@@ -292,110 +342,226 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          * personal information with the bank.
          */
 
-//        kycProcessWithThrift(ctx);
+        kycProcessWithThrift(ctx);
 
         /*
          * Alice decides to quit her job with Acme
          */
 
-//        acmeRevokesTheJobCertificate(ctx);
+        acmeRevokesTheJobCertificate(ctx);
 
         /*
          * Alice applies for another loan with Thrift Bank - this time without having a Job
          * 
          */
         
-//        applyForLoanWithThrift(ctx, false);
+        applyForLoanWithThrift(ctx, false);
     }
 
-    void onboardGovernment(WalktroughContext ctx) throws IOException {
+    void onboardGovernment(WalkthroughContext ctx) throws IOException {
 
         String walletName = Government;
         logSection("Onboard " + walletName);
         
         CreateWalletRequest walletRequest = CreateWalletRequest.builder()
+                .walletDispatchType(WalletDispatchType.DEFAULT)
+                .walletType(WalletType.INDY)
                 .walletKey(walletName + "Key")
                 .walletName(walletName)
                 .build();
 
         WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
-                HEADER_MULTITENANCY_WALLET_REGISTER_NYM, true, 
-                HEADER_MULTITENANCY_WALLET_ROLE, TRUSTEE),
+                HEADER_MULTITENANCY_LEDGER_ROLE, TRUSTEE,
+                HEADER_MULTITENANCY_SELF_REGISTER_NYM, true), 
                 WalletRecord.class);
+
         
-        Assertions.assertNotNull(wallet, "Wallet not null");
+        DID publicDid = template.requestBodyAndHeaders("direct:government", null, Map.of(HEADER_SERVICE, "/wallet/did/public"), DID.class);
+        Assertions.assertNotNull(publicDid, "Public DID not null");
+        
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(Arrays.asList(), ev -> log.warn("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(getComponent().getWalletRegistry())
+                .build());
+        
+        ctx.putAttachment(Government, WebSocket.class, webSocket);
     }
 
-    void onboardFaberCollege(WalktroughContext ctx) {
+    void onboardFaberCollege(WalkthroughContext ctx) throws IOException {
 
         String walletName = Faber;
         logSection("Onboard " + walletName);
         
         CreateWalletRequest walletRequest = CreateWalletRequest.builder()
+                .walletDispatchType(WalletDispatchType.DEFAULT)
+                .walletType(WalletType.INDY)
                 .walletKey(walletName + "Key")
                 .walletName(walletName)
                 .build();
 
         WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
-                HEADER_MULTITENANCY_WALLET_REGISTER_NYM, true, 
-                HEADER_MULTITENANCY_WALLET_ROLE, ENDORSER),
+                HEADER_MULTITENANCY_TRUSTEE_WALLET, Government, 
+                HEADER_MULTITENANCY_LEDGER_ROLE, ENDORSER),
                 WalletRecord.class);
         
-        Assertions.assertNotNull(wallet, "Wallet not null");
+        DID publicDid = template.requestBodyAndHeaders("direct:faber", null, Map.of(HEADER_SERVICE, "/wallet/did/public"), DID.class);
+        Assertions.assertNotNull(publicDid, "Public DID not null");
+        
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(getComponent().getWalletRegistry())
+                .build());
+        
+        ctx.putAttachment(Faber, WebSocket.class, webSocket);
     }
 
-    void onboardAcmeCorp(WalktroughContext ctx) {
+    void onboardAcmeCorp(WalkthroughContext ctx) throws IOException {
 
         String walletName = Acme;
         logSection("Onboard " + walletName);
         
         CreateWalletRequest walletRequest = CreateWalletRequest.builder()
+                .walletDispatchType(WalletDispatchType.DEFAULT)
+                .walletType(WalletType.INDY)
                 .walletKey(walletName + "Key")
                 .walletName(walletName)
                 .build();
-
-        WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
-                HEADER_MULTITENANCY_WALLET_REGISTER_NYM, true, 
-                HEADER_MULTITENANCY_WALLET_ROLE, ENDORSER),
-                WalletRecord.class);
         
-        Assertions.assertNotNull(wallet, "Wallet not null");
+        WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
+                HEADER_MULTITENANCY_TRUSTEE_WALLET, Government, 
+                HEADER_MULTITENANCY_LEDGER_ROLE, ENDORSER),
+                WalletRecord.class);
+
+        DID publicDid = template.requestBodyAndHeaders("direct:acme", null, Map.of(HEADER_SERVICE, "/wallet/did/public"), DID.class);
+        Assertions.assertNotNull(publicDid, "Public DID not null");
+        
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(getComponent().getWalletRegistry())
+                .build());
+        
+        ctx.putAttachment(Acme, WebSocket.class, webSocket);
     }
 
-    void onboardThriftBank(WalktroughContext ctx) {
+    void onboardThriftBank(WalkthroughContext ctx) throws IOException {
 
         String walletName = Thrift;
         logSection("Onboard " + walletName);
         
         CreateWalletRequest walletRequest = CreateWalletRequest.builder()
+                .walletDispatchType(WalletDispatchType.DEFAULT)
+                .walletType(WalletType.INDY)
                 .walletKey(walletName + "Key")
                 .walletName(walletName)
                 .build();
 
         WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
-                HEADER_MULTITENANCY_WALLET_REGISTER_NYM, true, 
-                HEADER_MULTITENANCY_WALLET_ROLE, ENDORSER),
+                HEADER_MULTITENANCY_TRUSTEE_WALLET, Government, 
+                HEADER_MULTITENANCY_LEDGER_ROLE, ENDORSER),
                 WalletRecord.class);
+
+        DID publicDid = template.requestBodyAndHeaders("direct:thrift", null, Map.of(HEADER_SERVICE, "/wallet/did/public"), DID.class);
+        Assertions.assertNotNull(publicDid, "Public DID not null");
         
-        Assertions.assertNotNull(wallet, "Wallet not null");
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(getComponent().getWalletRegistry())
+                .build());
+        
+        ctx.putAttachment(Thrift, WebSocket.class, webSocket);
     }
 
-    void onboardAlice(WalktroughContext ctx) {
+    void onboardAlice(WalkthroughContext ctx) throws IOException {
 
         String walletName = Alice;
         logSection("Onboard " + walletName);
         
         CreateWalletRequest walletRequest = CreateWalletRequest.builder()
+                .walletDispatchType(WalletDispatchType.DEFAULT)
+                .walletType(WalletType.INDY)
                 .walletKey(walletName + "Key")
                 .walletName(walletName)
                 .build();
 
         WalletRecord wallet = template.requestBody("direct:admin", walletRequest, WalletRecord.class);
         
-        Assertions.assertNotNull(wallet, "Wallet not null");
+        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
+                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
+                .walletRegistry(getComponent().getWalletRegistry())
+                .build());
+        
+        ctx.putAttachment(Alice, WebSocket.class, webSocket);
     }
 
-    void createTranscriptSchema(WalktroughContext ctx) {
+    void connectPeers(WalkthroughContext ctx, String inviter, String invitee) throws Exception {
+
+        logSection(String.format("Connect %s to %s", inviter, invitee));
+
+        ConnectionRecord[] inviterConnection = new ConnectionRecord[1];
+        ConnectionRecord[] inviteeConnection = new ConnectionRecord[1];
+        CountDownLatch peerConnectionLatch = new CountDownLatch(2);
+        
+        SafeConsumer<WebSocketEvent> eventConsumer = ev -> {
+            String thisName = ev.getThisWalletName();
+            String theirName = ev.getTheirWalletName();
+            ConnectionRecord con = ev.getPayload(ConnectionRecord.class);
+            log.info("{}: [@{}] {} {} {}", thisName, theirName, con.getTheirRole(), con.getState(), con);
+            if (con.getTheirRole() == ConnectionTheirRole.INVITEE) 
+                inviterConnection[0] = con;
+            if (con.getTheirRole() == ConnectionTheirRole.INVITER) 
+                inviteeConnection[0] = con;
+            if (ConnectionState.ACTIVE == con.getState()) {
+                peerConnectionLatch.countDown();
+            }
+        };
+        
+        WalletRecord inviterWallet = getComponent().getWalletByName(inviter);
+        WebSocket inviterSocket = WebSockets.createWebSocket(inviterWallet, new WebSocketEventHandler.Builder()
+                .walletRegistry(getComponent().getWalletRegistry())
+                .subscribe(ConnectionRecord.class, eventConsumer)
+                .build());
+        
+        WalletRecord inviteeWallet = getComponent().getWalletByName(invitee);
+        WebSocket inviteeSocket = WebSockets.createWebSocket(inviteeWallet, new WebSocketEventHandler.Builder()
+                .walletRegistry(getComponent().getWalletRegistry())
+                .subscribe(ConnectionRecord.class, eventConsumer)
+                .build());
+        
+        // Inviter creates an invitation (/connections/create-invitation)
+        UnaryOperator<String> uri = wn -> "direct:" + wn.toLowerCase();
+        CreateInvitationRequest createInvitationRequest = CreateInvitationRequest.builder().build();
+        CreateInvitationResponse createInvitationResponse = template.requestBodyAndHeaders(uri.apply(inviter), createInvitationRequest, Map.of(
+                HEADER_SERVICE, "/connections/create-invitation"), 
+                CreateInvitationResponse.class);
+
+        // This invitation data finds its way to the Invitee somehow (i.e. out-of-band)
+        ConnectionInvitation invitation = createInvitationResponse.getInvitation();
+        
+        // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
+        ReceiveInvitationRequest receiveInvitationRequest = ReceiveInvitationRequest.builder()
+                .recipientKeys(invitation.getRecipientKeys())
+                .serviceEndpoint(invitation.getServiceEndpoint())
+                .build();
+        
+        ConnectionReceiveInvitationFilter receiveParams = ConnectionReceiveInvitationFilter.builder()
+                    .autoAccept(true)
+                    .build();
+
+        template.requestBodyAndHeaders(uri.apply(invitee), receiveInvitationRequest, Map.of(
+                HEADER_SERVICE, "/connections/receive-invitation",
+                ConnectionReceiveInvitationFilter.class.getName(), receiveParams), 
+                ConnectionRecord.class);
+        
+        AssertState.isTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
+        
+        WebSockets.closeWebSocket(inviterSocket);
+        WebSockets.closeWebSocket(inviteeSocket);
+        
+        ctx.putAttachment(inviter + invitee + "Connection", inviterConnection[0]);
+        ctx.putAttachment(invitee + inviter + "Connection", inviteeConnection[0]);
+    }
+
+    void createTranscriptSchema(WalkthroughContext ctx) {
         
         logSection("Create Transcript Schema");
         
@@ -423,7 +589,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         ctx.putAttachment(TranscriptSchemaId, schemaResponse.getSchemaId());
     }
 
-    void createJobCertificateSchema(WalktroughContext ctx) {
+    void createJobCertificateSchema(WalkthroughContext ctx) {
 
         logSection("Create Job Certificate Schema");
         
@@ -449,7 +615,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         ctx.putAttachment(JobCertificateSchemaId, schemaResponse.getSchemaId());
     }
 
-    void createTranscriptCredentialDefinition(WalktroughContext ctx) {
+    void createTranscriptCredentialDefinition(WalkthroughContext ctx) {
 
         logSection("Create Transcript CredDef");
         
@@ -468,7 +634,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         ctx.putAttachment(TranscriptCredDefId, credDefResponse.getCredentialDefinitionId());
     }
 
-    void createJobCertificateCredentialDefinition(WalktroughContext ctx) {
+    void createJobCertificateCredentialDefinition(WalkthroughContext ctx) {
 
         logSection("Create Job Certificate CredDef");
         
@@ -484,7 +650,8 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                 CredentialDefinitionResponse.class);
         log.info("{}", credDefResponse);
         
-        ctx.putAttachment(JobCertificateCredDefId, credDefResponse.getCredentialDefinitionId());
+        String credentialDefinitionId = credDefResponse.getCredentialDefinitionId();
+        ctx.putAttachment(JobCertificateCredDefId, credentialDefinitionId);
 
         /* 2. Acme creates a Revocation Registry for the given Credential Definition.
          * 
@@ -495,7 +662,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          */
 
         RevRegCreateRequest revocRegistryRequest = RevRegCreateRequest.builder()
-                .credentialDefinitionId(ctx.getAttachment(JobCertificateCredDefId, String.class))
+                .credentialDefinitionId(credentialDefinitionId)
                 .build();
         
         IssuerRevRegRecord revocRegistryRecord = template.requestBodyAndHeaders("direct:acme", revocRegistryRequest, Map.of(
@@ -504,24 +671,814 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         log.info("{}", revocRegistryRecord);
     }
 
-    void getTranscriptFromFaber(WalktroughContext ctx) {
+    void getTranscriptFromFaber(WalkthroughContext ctx) throws Exception {
+
+        logSection("Alice gets Transcript from Faber");
+        
+        String faberAliceConnectionId = ctx.getConnection(Faber, Alice).getConnectionId();
+        
+        V1CredentialExchange[] issuerCredEx = new V1CredentialExchange[1];
+        V1CredentialExchange[] holderCredEx = new V1CredentialExchange[1];
+        CountDownLatch holderOfferReceived = new CountDownLatch(1);
+        CountDownLatch issuerRequestReceived = new CountDownLatch(1);
+        CountDownLatch holderCredentialReceived = new CountDownLatch(1);
+        CountDownLatch holderCredentialAcked = new CountDownLatch(1);
+        
+        WebSocketEventHandler issuerHandler = WebSockets.getEventHandler(ctx.getWebSocket(Faber));
+        EventSubscriber<WebSocketEvent> issuerSubscriber = issuerHandler.subscribe(V1CredentialExchange.class, ev -> { 
+                    V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+                    log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
+                    if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
+                        issuerCredEx[0] = cex;
+                        issuerRequestReceived.countDown();
+                    }
+                });
+
+        WebSocketEventHandler holderHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        EventSubscriber<WebSocketEvent> holderSubscriber = holderHandler.subscribe(V1CredentialExchange.class, ev -> { 
+                    V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+                    log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
+                    if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
+                        holderCredEx[0] = cex;
+                        holderOfferReceived.countDown();
+                    }
+                    else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_RECEIVED == cex.getState()) {
+                        holderCredEx[0] = cex;
+                        holderCredentialReceived.countDown();
+                    }
+                    else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_ACKED == cex.getState()) {
+                        holderCredEx[0] = cex;
+                        holderCredentialAcked.countDown();
+                    }
+                });
+
+        /* 1. Faber sends the Transcript Credential Offer
+         * 
+         * The value of this Transcript Credential is that it is provably issued by Faber College
+         */
+        
+        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId, String.class);
+        V1CredentialOfferRequest credentialOfferRequest = V1CredentialOfferRequest.builder()
+                .connectionId(faberAliceConnectionId)
+                .credentialDefinitionId(transcriptCredDefId)
+                .credentialPreview(new CredentialPreview(CredentialAttributes.from(Map.of(
+                        "first_name", "Alice", 
+                        "last_name", "Garcia", 
+                        "ssn", "123-45-6789", 
+                        "degree", "Bachelor of Science, Marketing", 
+                        "status", "graduated", 
+                        "year", "2015", 
+                        "average", "5"))))
+                .build();
+
+        template.requestBodyAndHeaders("direct:faber", credentialOfferRequest, Map.of(
+                HEADER_SERVICE, "/issue-credential/send-offer"), 
+                V1CredentialExchange.class);
+
+        /* 2. Alice inspects the the Transcript Credential Offer
+         * 
+         */
+        
+        Assertions.assertTrue(holderOfferReceived.await(10, TimeUnit.SECONDS), "No HOLDER OFFER_RECEIVED");
+        
+        CredentialProposal credentialProposal = holderCredEx[0].getCredentialProposalDict().getCredentialProposal();
+        CredentialProposalHelper credentialHelper = new CredentialProposalHelper(credentialProposal);
+        Assertions.assertEquals("Alice", credentialHelper.getAttributeValue("first_name"));
+        Assertions.assertEquals("Garcia", credentialHelper.getAttributeValue("last_name"));
+        Assertions.assertEquals("graduated", credentialHelper.getAttributeValue("status"));
+        Assertions.assertEquals("5", credentialHelper.getAttributeValue("average"));
+        
+        /* 3. Alice sends the Transcript Credential Request
+         * 
+         */
+        
+        String holderCredentialExchangeId = holderCredEx[0].getCredentialExchangeId();
+        template.requestBodyAndHeaders("direct:alice", null, Map.of(
+                HEADER_SERVICE, "/issue-credential/records/" + holderCredentialExchangeId + "/send-request"), 
+                V1CredentialExchange.class);
+
+        /* 4. Faber receives the Transcript Credential Request
+         * 
+         */
+
+        Assertions.assertTrue(issuerRequestReceived.await(10, TimeUnit.SECONDS), "No ISSUER REQUEST_RECEIVED");
+        
+        /* 5. Faber issues the Transcript Credential
+         * 
+         */
+
+        String issuerCredentialExchangeId = issuerCredEx[0].getCredentialExchangeId();
+        V1CredentialIssueRequest credentialIssueRequest = V1CredentialIssueRequest.builder().build();
+        
+        template.requestBodyAndHeaders("direct:faber", credentialIssueRequest, Map.of(
+                HEADER_SERVICE, "/issue-credential/records/" + issuerCredentialExchangeId + "/issue"), 
+                V1CredentialExchange.class);
+        
+        /* 6. Alice receives the Transcript Credential
+         * 
+         */
+
+        Assertions.assertTrue(holderCredentialReceived.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_RECEIVED");
+        
+        /* 7. Alice stores the Transcript Credential
+         * 
+         */
+
+        String holderCredentialId = holderCredEx[0].getCredentialId();
+        holderCredentialExchangeId = holderCredEx[0].getCredentialExchangeId();
+        V1CredentialStoreRequest credentialStoreRequest = V1CredentialStoreRequest.builder()
+              .credentialId(holderCredentialId)
+              .build();
+        
+        template.requestBodyAndHeaders("direct:alice", credentialStoreRequest, Map.of(
+                HEADER_SERVICE, "/issue-credential/records/" + holderCredentialExchangeId + "/store"), 
+                V1CredentialExchange.class);
+
+        Assertions.assertTrue(holderCredentialAcked.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_ACKED");
+        
+        issuerSubscriber.cancelSubscription();
+        holderSubscriber.cancelSubscription();
     }
 
-    void applyForJobWithAcme(WalktroughContext ctx) {
+    void applyForJobWithAcme(WalkthroughContext ctx) throws Exception {
+
+        logSection("Alice applies for a Job with Acme");
+        
+        String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
+        
+        PresentationExchangeRecord[] proverExchangeRecord = new PresentationExchangeRecord[1];
+        PresentationExchangeRecord[] verifierExchangeRecord = new PresentationExchangeRecord[1];
+        CountDownLatch proverRequestReceived = new CountDownLatch(1);
+        CountDownLatch verifierPresentationReceived = new CountDownLatch(1);
+        CountDownLatch verifierVerified = new CountDownLatch(1);
+        CountDownLatch proverPresentationAcked = new CountDownLatch(1);
+        
+        WebSocketEventHandler verifierHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
+        EventSubscriber<WebSocketEvent> verifierSubscriber = verifierHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
+                    PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
+                    log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
+                    if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.PRESENTATION_RECEIVED == pex.getState()) {
+                        verifierExchangeRecord[0] = pex;
+                        verifierPresentationReceived.countDown();
+                    }
+                    if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.VERIFIED == pex.getState()) {
+                        verifierExchangeRecord[0] = pex;
+                        verifierVerified.countDown();
+                    }
+                });
+        
+        WebSocketEventHandler proverHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        EventSubscriber<WebSocketEvent> proverSubscriber = proverHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
+                    PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
+                    log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
+                    if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.REQUEST_RECEIVED == pex.getState()) {
+                        proverExchangeRecord[0] = pex;
+                        proverRequestReceived.countDown();
+                    }
+                    if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.PRESENTATION_ACKED == pex.getState()) {
+                        proverExchangeRecord[0] = pex;
+                        proverPresentationAcked.countDown();
+                    }
+                });
+        
+        /* 1. Acme creates a Job Application Proof Request
+         * 
+         * Notice that some attributes are verifiable and others are not.
+         * 
+         * The proof request says that degree, and graduation status, ssn and year must be formally asserted by an issuer and schema_key. 
+         * Notice also that the first_name, last_name and phone_number are not required to be verifiable. 
+         * 
+         * By not tagging these credentials with a verifiable status, Acme’s credential request is saying it will accept 
+         * Alice’s own credential about her names and phone number.
+         */
+        
+        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId, String.class);
+        
+        Function<String, JsonObject> creddefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
+        Function<String, ProofRequestedAttributes> proofReqAttr = name -> ProofRequestedAttributes.builder().name(name).build();
+        BiFunction<String, String, ProofRequestedAttributes> restrictedProofReqAttr = (name, cdid) -> ProofRequestedAttributes.builder()
+                .name(name)
+                .restriction(creddefRestriction.apply(cdid))
+                .build();
+        BiFunction<String, String, ProofRequestedPredicates> restrictedProofReqPred = (pred, cdid) -> ProofRequestedPredicates.builder()
+                .name(pred.split(" ")[0])
+                .pType(PTypeEnum.fromValue(pred.split(" ")[1]))
+                .pValue(Integer.valueOf(pred.split(" ")[2]))
+                .restriction(creddefRestriction.apply(cdid))
+                .build();
+        
+        PresentProofRequest proofRequest = PresentProofRequest.builder()
+                .connectionId(acmeAliceConnectionId)
+                .proofRequest(ProofRequest.builder()
+                        .name("Job-Application")
+                        .nonce("1")
+                        .requestedAttribute("attr1_referent", proofReqAttr.apply("first_name"))
+                        .requestedAttribute("attr2_referent", proofReqAttr.apply("last_name"))
+                        .requestedAttribute("attr3_referent", restrictedProofReqAttr.apply("ssn", transcriptCredDefId))
+                        .requestedAttribute("attr4_referent", restrictedProofReqAttr.apply("degree", transcriptCredDefId))
+                        .requestedAttribute("attr5_referent", restrictedProofReqAttr.apply("status", transcriptCredDefId))
+                        .requestedAttribute("attr6_referent", restrictedProofReqAttr.apply("year", transcriptCredDefId))
+                        .requestedPredicate("pred1_referent", restrictedProofReqPred.apply("average >= 4", transcriptCredDefId))
+                        .build())
+                .build();
+        
+        template.requestBodyAndHeaders("direct:acme", proofRequest, Map.of(
+                HEADER_SERVICE, "/present-proof/send-request"), 
+                PresentationExchangeRecord.class);
+        
+        Assertions.assertTrue(proverRequestReceived.await(10, TimeUnit.SECONDS), "No PROVER REQUEST_RECEIVED");
+
+        // 2. Alice searches her Wallet for Credentials that she can use for the creating of Proof for the Job-Application Proof Request
+        
+        Map<String, String> referentMapping = new HashMap<>();
+        String proverExchangeId = proverExchangeRecord[0].getPresentationExchangeId();
+        PresentationRequestCredentialsFilter credentialsFilter = PresentationRequestCredentialsFilter.builder().build();
+        
+        List<PresentationRequestCredentials> credentials = Arrays.asList(template.requestBodyAndHeaders("direct:alice", credentialsFilter, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + proverExchangeId + "/credentials"), 
+                PresentationRequestCredentials[].class));
+        Assertions.assertEquals(1, credentials.size(), "Expected single Credential");
+
+        credentials.stream().forEach(cred -> {
+                List<String> presentationReferents = cred.getPresentationReferents();
+                CredentialInfo credInfo = cred.getCredentialInfo();
+                String credDefId = credInfo.getCredentialDefinitionId();
+                Map<String, String> attributes = credInfo.getAttrs();
+                String referent = credInfo.getReferent();
+                log.info("{}", cred); 
+                log.info("+- CredDefId: {}", credDefId); 
+                log.info("+- PresentationReferents: {}", presentationReferents); 
+                log.info("+- Attributes: {}", attributes); 
+                log.info("+- Referent: {}", referent); 
+                
+                // Map attribute referents to their respective credential referent
+                presentationReferents.stream().forEach(pr -> referentMapping.put(pr, referent));
+            });
+
+        /* 3. Alice provides Job Application Proof
+         * 
+         * Alice divides these attributes into the three groups:
+         * 
+         * - attributes values of which will be revealed
+         * - attributes values of which will be unrevealed
+         * - attributes for which creating of verifiable proof is not required
+         */
+        
+        BiFunction<String, Boolean, IndyRequestedCredsRequestedAttr> indyRequestedAttr = (ref, reveal) -> IndyRequestedCredsRequestedAttr.builder()
+                .credId(referentMapping.get(ref))
+                .revealed(reveal)
+                .build();
+        Function<String, IndyRequestedCredsRequestedPred> indyRequestedPred = ref -> IndyRequestedCredsRequestedPred.builder()
+                .credId(referentMapping.get(ref))
+                .build();
+        
+        PresentationRequest presentationRequest = PresentationRequest.builder()
+                .selfAttestedAttributes(Map.of(
+                        "attr1_referent", "Alice", 
+                        "attr2_referent", "Garcia"))
+                .requestedAttributes(Map.of(
+                        "attr3_referent", indyRequestedAttr.apply("attr3_referent", true),
+                        "attr4_referent", indyRequestedAttr.apply("attr4_referent", true),
+                        "attr5_referent", indyRequestedAttr.apply("attr5_referent", true),
+                        "attr6_referent", indyRequestedAttr.apply("attr6_referent", true)))
+                .requestedPredicates(Map.of(
+                        "pred1_referent", indyRequestedPred.apply("pred1_referent")))
+                .build();
+        
+        template.requestBodyAndHeaders("direct:alice", presentationRequest, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + proverExchangeId + "/send-presentation"), 
+                PresentationExchangeRecord.class);
+        
+        Assertions.assertTrue(verifierPresentationReceived.await(10, TimeUnit.SECONDS), "No VERIFIER PRESENTATION_RECEIVED");
+        
+        /* 4. Acme verifies the Job Application Proof from Alice
+         * 
+         */
+        
+        String verifierExchangeId = verifierExchangeRecord[0].getPresentationExchangeId();
+
+        template.requestBodyAndHeaders("direct:acme", null, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + verifierExchangeId + "/verify-presentation"), 
+                PresentationExchangeRecord.class);
+        
+        Assertions.assertTrue(verifierVerified.await(10, TimeUnit.SECONDS), "No VERIFIER VERIFIED");
+        Assertions.assertTrue(verifierExchangeRecord[0].isVerified(), "Not VERIFIED");
+        
+        Assertions.assertTrue(proverPresentationAcked.await(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+        
+        // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
+        // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
+        //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
+        
+        verifierSubscriber.cancelSubscription();
+        proverSubscriber.cancelSubscription();
     }
 
-    void getJobWithAcme(WalktroughContext ctx) {
+    void getJobWithAcme(WalkthroughContext ctx) throws Exception {
+
+        logSection("Alice gets JobCertificate from Acme");
+        
+        String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
+        
+        V1CredentialExchange[] issuerCredEx = new V1CredentialExchange[1];
+        V1CredentialExchange[] holderCredEx = new V1CredentialExchange[1];
+        CountDownLatch holderOfferReceived = new CountDownLatch(1);
+        CountDownLatch issuerRequestReceived = new CountDownLatch(1);
+        CountDownLatch holderCredentialReceived = new CountDownLatch(1);
+        CountDownLatch holderCredentialAcked = new CountDownLatch(1);
+        
+        WebSocketEventHandler issuerHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
+        EventSubscriber<WebSocketEvent> issuerSubscriber = issuerHandler.subscribe(V1CredentialExchange.class, ev -> { 
+                    V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+                    log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
+                    if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
+                        issuerCredEx[0] = cex;
+                        issuerRequestReceived.countDown();
+                    }
+                });
+
+        WebSocketEventHandler holderHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        EventSubscriber<WebSocketEvent> holderSubscriber = holderHandler.subscribe(V1CredentialExchange.class, ev -> { 
+                    V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+                    log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
+                    if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
+                        holderCredEx[0] = cex;
+                        holderOfferReceived.countDown();
+                    }
+                    else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_RECEIVED == cex.getState()) {
+                        holderCredEx[0] = cex;
+                        holderCredentialReceived.countDown();
+                    }
+                    else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_ACKED == cex.getState()) {
+                        holderCredEx[0] = cex;
+                        holderCredentialAcked.countDown();
+                    }
+                });
+
+        /* 1. Acme sends the JobCertificate Credential Offer
+         * 
+         * The value of this JobCertificate Credential is that it 
+         * is verifiably proves that the holder is employed by Acme
+         */
+        
+        String jobCertificateCredDefId = ctx.getAttachment(JobCertificateCredDefId, String.class);
+        V1CredentialOfferRequest credentialOfferRequest = V1CredentialOfferRequest.builder()
+                .connectionId(acmeAliceConnectionId)
+                .credentialDefinitionId(jobCertificateCredDefId)
+                .credentialPreview(new CredentialPreview(CredentialAttributes.from(Map.of(
+                        "first_name", "Alice", 
+                        "last_name", "Garcia", 
+                        "employee_status", "Permanent", 
+                        "experience", "10", 
+                        "salary", "2400"))))
+                .build();
+        
+        template.requestBodyAndHeaders("direct:acme", credentialOfferRequest, Map.of(
+                HEADER_SERVICE, "/issue-credential/send-offer"), 
+                V1CredentialExchange.class);
+        
+        /* 2. Alice inspects the the JobCertificate Credential Offer
+         * 
+         */
+        
+        Assertions.assertTrue(holderOfferReceived.await(10, TimeUnit.SECONDS), "No HOLDER OFFER_RECEIVED");
+        
+        CredentialProposal credentialProposal = holderCredEx[0].getCredentialProposalDict().getCredentialProposal();
+        CredentialProposalHelper credentialHelper = new CredentialProposalHelper(credentialProposal);
+        Assertions.assertEquals("Alice", credentialHelper.getAttributeValue("first_name"));
+        Assertions.assertEquals("Garcia", credentialHelper.getAttributeValue("last_name"));
+        Assertions.assertEquals("Permanent", credentialHelper.getAttributeValue("employee_status"));
+        Assertions.assertEquals("2400", credentialHelper.getAttributeValue("salary"));
+        
+        /* 3. Alice sends the JobCertificate Credential Request
+         * 
+         */
+        
+        String holderCredentialExchangeId = holderCredEx[0].getCredentialExchangeId();
+        template.requestBodyAndHeaders("direct:alice", null, Map.of(
+                HEADER_SERVICE, "/issue-credential/records/" + holderCredentialExchangeId + "/send-request"), 
+                V1CredentialExchange.class);
+        
+        /* 4. Acme receives the JobCertificate Credential Request
+         * 
+         */
+
+        Assertions.assertTrue(issuerRequestReceived.await(10, TimeUnit.SECONDS), "No ISSUER REQUEST_RECEIVED");
+        
+        /* 5. Acme issues the JobCertificate Credential
+         * 
+         */
+
+        String issuerCredentialExchangeId = issuerCredEx[0].getCredentialExchangeId();
+        V1CredentialIssueRequest credentialIssueRequest = V1CredentialIssueRequest.builder().build();
+        
+        template.requestBodyAndHeaders("direct:acme", credentialIssueRequest, Map.of(
+                HEADER_SERVICE, "/issue-credential/records/" + issuerCredentialExchangeId + "/issue"), 
+                V1CredentialExchange.class);
+        
+        /* 6. Alice receives the Transcript Credential
+         * 
+         */
+
+        Assertions.assertTrue(holderCredentialReceived.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_RECEIVED");
+        
+        /* 7. Alice stores the Transcript Credential
+         * 
+         */
+
+        String holderCredentialId = holderCredEx[0].getCredentialId();
+        holderCredentialExchangeId = holderCredEx[0].getCredentialExchangeId();
+        V1CredentialStoreRequest credentialStoreRequest = V1CredentialStoreRequest.builder()
+              .credentialId(holderCredentialId)
+              .build();
+        
+        template.requestBodyAndHeaders("direct:alice", credentialStoreRequest, Map.of(
+                HEADER_SERVICE, "/issue-credential/records/" + holderCredentialExchangeId + "/store"), 
+                V1CredentialExchange.class);
+
+        Assertions.assertTrue(holderCredentialAcked.await(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_ACKED");
+        
+        issuerSubscriber.cancelSubscription();
+        holderSubscriber.cancelSubscription();
     }
 
-    void connectPeers(WalktroughContext ctx, String thrift2, String alice2) {
+    void applyForLoanWithThrift(WalkthroughContext ctx, boolean expectedOutcome) throws Exception {
+        
+        logSection("Alice applies for a Loan with Thrift");
+        
+        String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
+
+        PresentationExchangeRecord[] proverExchangeRecord = new PresentationExchangeRecord[1];
+        PresentationExchangeRecord[] verifierExchangeRecord = new PresentationExchangeRecord[1];
+        CountDownLatch proverRequestReceived = new CountDownLatch(1);
+        CountDownLatch verifierPresentationReceived = new CountDownLatch(1);
+        CountDownLatch verifierVerified = new CountDownLatch(1);
+        CountDownLatch proverPresentationAcked = new CountDownLatch(1);
+        
+        WebSocketEventHandler verifierHandler = WebSockets.getEventHandler(ctx.getWebSocket(Thrift));
+        EventSubscriber<WebSocketEvent> verifierSubscriber = verifierHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
+                    PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
+                    log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
+                    if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.PRESENTATION_RECEIVED == pex.getState()) {
+                        verifierExchangeRecord[0] = pex;
+                        verifierPresentationReceived.countDown();
+                    }
+                    if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.VERIFIED == pex.getState()) {
+                        verifierExchangeRecord[0] = pex;
+                        verifierVerified.countDown();
+                    }
+                });
+        
+        WebSocketEventHandler proverHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        EventSubscriber<WebSocketEvent> proverSubscriber = proverHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
+                    PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
+                    log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
+                    if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.REQUEST_RECEIVED == pex.getState()) {
+                        proverExchangeRecord[0] = pex;
+                        proverRequestReceived.countDown();
+                    }
+                    if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.PRESENTATION_ACKED == pex.getState()) {
+                        proverExchangeRecord[0] = pex;
+                        proverPresentationAcked.countDown();
+                    }
+                });
+       
+        /* 1. Alice gets a Loan-Application Proof Request from Thrift Bank
+         * 
+         * Note, that the Job-Certificate should not have been revoked at the time of application.
+         */
+        
+        String jobCertificateCredDefId = ctx.getAttachment(JobCertificateCredDefId, String.class);
+        
+        Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
+        BiFunction<String, String, ProofRequestedAttributes> restrictedProofReqAttr = (name, cdid) -> ProofRequestedAttributes.builder()
+                .name(name)
+                .restriction(credDefRestriction.apply(cdid))
+                .build();
+        BiFunction<String, String, ProofRequestedPredicates> restrictedProofReqPred = (pred, cdid) -> ProofRequestedPredicates.builder()
+                .name(pred.split(" ")[0])
+                .pType(PTypeEnum.fromValue(pred.split(" ")[1]))
+                .pValue(Integer.valueOf(pred.split(" ")[2]))
+                .restriction(credDefRestriction.apply(cdid))
+                .build();
+        
+        PresentProofRequest proofRequest = PresentProofRequest.builder()
+                .connectionId(thriftAliceConnectionId)
+                .proofRequest(ProofRequest.builder()
+                        .name("Loan-Application")
+                        .nonce("1")
+                        .requestedAttribute("attr1_referent", restrictedProofReqAttr.apply("employee_status", jobCertificateCredDefId))
+                        .requestedPredicate("pred1_referent", restrictedProofReqPred.apply("salary >= 2000", jobCertificateCredDefId))
+                        .requestedPredicate("pred2_referent", restrictedProofReqPred.apply("experience >= 1", jobCertificateCredDefId))
+                        .nonRevoked(ProofNonRevoked.builder()
+                                .from(Instant.now().getEpochSecond())
+                                .to(Instant.now().getEpochSecond())
+                                .build())
+                        .build())
+                .build();
+        
+        template.requestBodyAndHeaders("direct:thrift", proofRequest, Map.of(
+                HEADER_SERVICE, "/present-proof/send-request"), 
+                PresentationExchangeRecord.class);
+        
+        Assertions.assertTrue(proverRequestReceived.await(10, TimeUnit.SECONDS), "No PROVER REQUEST_RECEIVED");
+        
+        // 2. Alice searches her Wallet for Credentials that she can use for the creating of Proof for the Loan-Application Proof Request
+        
+        Map<String, String> referentMapping = new HashMap<>();
+        String proverExchangeId = proverExchangeRecord[0].getPresentationExchangeId();
+        PresentationRequestCredentialsFilter credentialsFilter = PresentationRequestCredentialsFilter.builder().build();
+        
+        List<PresentationRequestCredentials> credentials = Arrays.asList(template.requestBodyAndHeaders("direct:alice", credentialsFilter, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + proverExchangeId + "/credentials"), 
+                PresentationRequestCredentials[].class));
+        Assertions.assertEquals(1, credentials.size(), "Expected single Credential");
+
+        credentials.stream().forEach(cred -> {
+                List<String> presentationReferents = cred.getPresentationReferents();
+                CredentialInfo credInfo = cred.getCredentialInfo();
+                String credDefId = credInfo.getCredentialDefinitionId();
+                Map<String, String> attributes = credInfo.getAttrs();
+                String referent = credInfo.getReferent();
+                log.info("{}", cred); 
+                log.info("+- CredDefId: {}", credDefId); 
+                log.info("+- PresentationReferents: {}", presentationReferents); 
+                log.info("+- Attributes: {}", attributes); 
+                log.info("+- Referent: {}", referent); 
+                
+                // Map attribute referents to their respective credential referent
+                presentationReferents.stream().forEach(pr -> referentMapping.put(pr, referent));
+            });
+
+        /* 3. Alice provides Loan-Application Proof
+         * 
+         * Alice divides these attributes into the three groups:
+         * 
+         * - attributes values of which will be revealed
+         * - attributes values of which will be unrevealed
+         * - attributes for which creating of verifiable proof is not required
+         */
+        
+        BiFunction<String, Boolean, IndyRequestedCredsRequestedAttr> indyRequestedAttr = (ref, reveal) -> IndyRequestedCredsRequestedAttr.builder()
+                .credId(referentMapping.get(ref))
+                .revealed(reveal)
+                .build();
+        Function<String, IndyRequestedCredsRequestedPred> indyRequestedPred = ref -> IndyRequestedCredsRequestedPred.builder()
+                .credId(referentMapping.get(ref))
+                .build();
+        
+        PresentationRequest presentationRequest = PresentationRequest.builder()
+                .requestedAttributes(Map.of(
+                        "attr1_referent", indyRequestedAttr.apply("attr1_referent", true)))
+                .requestedPredicates(Map.of(
+                        "pred1_referent", indyRequestedPred.apply("pred1_referent"),
+                        "pred2_referent", indyRequestedPred.apply("pred2_referent")))
+                .build();
+        
+        template.requestBodyAndHeaders("direct:alice", presentationRequest, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + proverExchangeId + "/send-presentation"), 
+                PresentationExchangeRecord.class);
+
+        Assertions.assertTrue(verifierPresentationReceived.await(10, TimeUnit.SECONDS), "No VERIFIER PRESENTATION_RECEIVED");
+        
+        /* 4. Thrift verifies the Loan-Application Proof from Alice
+         * 
+         */
+        
+        String verifierExchangeId = verifierExchangeRecord[0].getPresentationExchangeId();
+        
+        template.requestBodyAndHeaders("direct:thrift", null, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + verifierExchangeId + "/verify-presentation"), 
+                PresentationExchangeRecord.class);
+        
+        Assertions.assertTrue(verifierVerified.await(10, TimeUnit.SECONDS), "No VERIFIER VERIFIED");
+        Assertions.assertEquals(expectedOutcome, verifierExchangeRecord[0].isVerified(), "Unexpected verification outcome");
+        
+        Assertions.assertTrue(proverPresentationAcked.await(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+
+        // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
+        // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
+        //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
+
+        verifierSubscriber.cancelSubscription();
+        proverSubscriber.cancelSubscription();
     }
 
-    void kycProcessWithThrift(WalktroughContext ctx) {
+    void kycProcessWithThrift(WalkthroughContext ctx) throws Exception {
+
+        logSection("Alice goes through the KYC process with Thrift");
+        
+        String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
+
+        PresentationExchangeRecord[] proverExchangeRecord = new PresentationExchangeRecord[1];
+        PresentationExchangeRecord[] verifierExchangeRecord = new PresentationExchangeRecord[1];
+        CountDownLatch proverRequestReceived = new CountDownLatch(1);
+        CountDownLatch verifierPresentationReceived = new CountDownLatch(1);
+        CountDownLatch verifierVerified = new CountDownLatch(1);
+        CountDownLatch proverPresentationAcked = new CountDownLatch(1);
+        
+        WebSocketEventHandler verifierHandler = WebSockets.getEventHandler(ctx.getWebSocket(Thrift));
+        EventSubscriber<WebSocketEvent> verifierSubscriber = verifierHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
+                    PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
+                    log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
+                    if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.PRESENTATION_RECEIVED == pex.getState()) {
+                        verifierExchangeRecord[0] = pex;
+                        verifierPresentationReceived.countDown();
+                    }
+                    if (PresentationExchangeRole.VERIFIER == pex.getRole() && PresentationExchangeState.VERIFIED == pex.getState()) {
+                        verifierExchangeRecord[0] = pex;
+                        verifierVerified.countDown();
+                    }
+                });
+        
+        WebSocketEventHandler proverHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        EventSubscriber<WebSocketEvent> proverSubscriber = proverHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
+                    PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
+                    log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
+                    if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.REQUEST_RECEIVED == pex.getState()) {
+                        proverExchangeRecord[0] = pex;
+                        proverRequestReceived.countDown();
+                    }
+                    if (PresentationExchangeRole.PROVER == pex.getRole() && PresentationExchangeState.PRESENTATION_ACKED == pex.getState()) {
+                        proverExchangeRecord[0] = pex;
+                        proverPresentationAcked.countDown();
+                    }
+                });
+       
+        /* 1. Alice gets a second Proof Request from Thrift Bank
+         * 
+         */
+        
+        String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId, String.class);
+        
+        Function<String, JsonObject> credDefRestriction = cdid -> gson.fromJson("{\"cred_def_id\"=\"" + cdid + "\"}", JsonObject.class);
+        BiFunction<String, String, ProofRequestedAttributes> restrictedProofReqAttr = (name, cdid) -> ProofRequestedAttributes.builder()
+                .name(name)
+                .restriction(credDefRestriction.apply(cdid))
+                .build();
+        
+        PresentProofRequest proofRequest = PresentProofRequest.builder()
+                .connectionId(thriftAliceConnectionId)
+                .proofRequest(ProofRequest.builder()
+                        .name("KYC-Application")
+                        .nonce("1")
+                        .requestedAttribute("attr1_referent", restrictedProofReqAttr.apply("first_name", transcriptCredDefId))
+                        .requestedAttribute("attr2_referent", restrictedProofReqAttr.apply("last_name", transcriptCredDefId))
+                        .requestedAttribute("attr3_referent", restrictedProofReqAttr.apply("ssn", transcriptCredDefId))
+                        .build())
+                .build();
+        
+        template.requestBodyAndHeaders("direct:thrift", proofRequest, Map.of(
+                HEADER_SERVICE, "/present-proof/send-request"), 
+                PresentationExchangeRecord.class);
+        
+        Assertions.assertTrue(proverRequestReceived.await(10, TimeUnit.SECONDS), "No PROVER REQUEST_RECEIVED");
+        
+        // 2. Alice searches her Wallet for Credentials that she can use for the creating of Proof for the KYC Proof Request
+        
+        Map<String, String> referentMapping = new HashMap<>();
+        String proverExchangeId = proverExchangeRecord[0].getPresentationExchangeId();
+        PresentationRequestCredentialsFilter credentialsFilter = PresentationRequestCredentialsFilter.builder().build();
+        
+        List<PresentationRequestCredentials> credentials = Arrays.asList(template.requestBodyAndHeaders("direct:alice", credentialsFilter, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + proverExchangeId + "/credentials"), 
+                PresentationRequestCredentials[].class));
+        Assertions.assertEquals(1, credentials.size(), "Expected single Credential");
+
+        credentials.stream().forEach(cred -> {
+                List<String> presentationReferents = cred.getPresentationReferents();
+                CredentialInfo credInfo = cred.getCredentialInfo();
+                String credDefId = credInfo.getCredentialDefinitionId();
+                Map<String, String> attributes = credInfo.getAttrs();
+                String referent = credInfo.getReferent();
+                log.info("{}", cred); 
+                log.info("+- CredDefId: {}", credDefId); 
+                log.info("+- PresentationReferents: {}", presentationReferents); 
+                log.info("+- Attributes: {}", attributes); 
+                log.info("+- Referent: {}", referent); 
+                
+                // Map attribute referents to their respective credential referent
+                presentationReferents.stream().forEach(pr -> referentMapping.put(pr, referent));
+            });
+
+        /* 3. Alice provides KYC-Application Proof
+         * 
+         * Alice divides these attributes into the three groups:
+         * 
+         * - attributes values of which will be revealed
+         * - attributes values of which will be unrevealed
+         * - attributes for which creating of verifiable proof is not required
+         */
+        
+        BiFunction<String, Boolean, IndyRequestedCredsRequestedAttr> indyRequestedAttr = (ref, reveal) -> IndyRequestedCredsRequestedAttr.builder()
+                .credId(referentMapping.get(ref))
+                .revealed(reveal)
+                .build();
+        
+        PresentationRequest presentationRequest = PresentationRequest.builder()
+                .requestedAttributes(Map.of(
+                        "attr1_referent", indyRequestedAttr.apply("attr1_referent", true),
+                        "attr2_referent", indyRequestedAttr.apply("attr2_referent", true),
+                        "attr3_referent", indyRequestedAttr.apply("attr3_referent", true)))
+                .build();
+        
+        template.requestBodyAndHeaders("direct:alice", presentationRequest, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + proverExchangeId + "/send-presentation"), 
+                PresentationExchangeRecord.class);
+
+        Assertions.assertTrue(verifierPresentationReceived.await(10, TimeUnit.SECONDS), "No VERIFIER PRESENTATION_RECEIVED");
+        
+        /* 4. Thrift verifies the KYC-Application Proof from Alice
+         * 
+         */
+        
+        String verifierExchangeId = verifierExchangeRecord[0].getPresentationExchangeId();
+        
+        template.requestBodyAndHeaders("direct:thrift", null, Map.of(
+                HEADER_SERVICE, "/present-proof/records/" + verifierExchangeId + "/verify-presentation"), 
+                PresentationExchangeRecord.class);
+        
+        Assertions.assertTrue(verifierVerified.await(10, TimeUnit.SECONDS), "No VERIFIER VERIFIED");
+        Assertions.assertTrue(verifierExchangeRecord[0].isVerified(), "Not VERIFIED");
+        
+        Assertions.assertTrue(proverPresentationAcked.await(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+
+        // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
+        // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
+        //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
+
+        verifierSubscriber.cancelSubscription();
+        proverSubscriber.cancelSubscription();
     }
 
-    void acmeRevokesTheJobCertificate(WalktroughContext ctx) {
+    void acmeRevokesTheJobCertificate(WalkthroughContext ctx) throws Exception {
+        
+        logSection("Acme revokes the Job-Certificate Credential");
+
+        String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
+
+        WalletRecord issuerWallet = getComponent().getWalletByName(Acme);
+        String issuerWalletId = issuerWallet.getWalletId();
+
+        CountDownLatch revocationEventLatch = new CountDownLatch(1);
+        CountDownLatch credentialRevokedLatch = new CountDownLatch(1);
+        
+        WebSocketEventHandler issuerHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
+        EventSubscriber<WebSocketEvent> issuerSubscriber = issuerHandler.subscribe(RevocationEvent.class, ev -> { 
+                    RevocationEvent revoc = ev.getPayload(RevocationEvent.class);
+                    log.info("{}: [@{}] {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), revoc.getState(), revoc); 
+                    if ("revoked".equals(revoc.getState())) {
+                        revocationEventLatch.countDown();
+                    }
+        });
+        
+        // [TODO] Holder listens to an Issuer event
+        WebSocketEventHandler holderHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        EventSubscriber<WebSocketEvent> holderSubscriber = holderHandler.subscribeFromOther(issuerWalletId, V1CredentialExchange.class, ev -> { 
+                    V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
+                    log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
+                    if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.CREDENTIAL_REVOKED == cex.getState()) {
+                        credentialRevokedLatch.countDown();
+                    }
+        });
+        
+        // 1. Acme searches the Job-Certificate Credential
+        
+        String jobCertificateCredDefId = ctx.getAttachment(JobCertificateCredDefId, String.class);
+        IssueCredentialRecordsFilter recordsFilter = IssueCredentialRecordsFilter.builder()
+                .connectionId(acmeAliceConnectionId)
+                .build();
+        
+        V1CredentialExchange credex = Arrays.asList(template.requestBodyAndHeaders("direct:acme", recordsFilter, Map.of(
+                HEADER_SERVICE, "/issue-credential/records"), 
+                V1CredentialExchange[].class)).stream()
+                    .filter(cr -> jobCertificateCredDefId.equals(cr.getCredentialDefinitionId()))
+                    .findFirst().get();
+        
+        // 2. Acme revokes the Job-Certificate Credential
+        
+        RevokeRequest revokeRequest = RevokeRequest.builder()
+                .credExId(credex.getCredentialExchangeId())
+                .connectionId(acmeAliceConnectionId)
+                .publish(true)
+                .notify(true)
+                .build();
+        
+        template.requestBodyAndHeaders("direct:acme", revokeRequest, Map.of(
+                HEADER_SERVICE, "/revocation/revoke"), 
+                RevocationModuleResponse.class);
+        
+        Assertions.assertTrue(revocationEventLatch.await(10, TimeUnit.SECONDS), "No RevocationEvent");
+        Assertions.assertTrue(credentialRevokedLatch.await(10, TimeUnit.SECONDS), "No ISSUER CREDENTIAL_REVOKED");
+        
+        holderSubscriber.cancelSubscription();
+        issuerSubscriber.cancelSubscription();
     }
 
-    void applyForLoanWithThrift(WalktroughContext ctx, boolean b) {
+    private void closeWebSockets(WalkthroughContext ctx) throws Exception {
+        logSection("Close WebSockets");
+        for (String name : Arrays.asList(Government, Faber, Acme, Thrift, Alice)) {
+            WebSockets.closeWebSocket(ctx.getWebSocket(name));
+        }
     }
 }

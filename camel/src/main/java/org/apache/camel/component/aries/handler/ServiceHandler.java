@@ -4,6 +4,6 @@ import org.apache.camel.Exchange;
 
 public interface ServiceHandler {
 
-    void process(Exchange exchange) throws Exception;
+    void process(Exchange exchange, String service) throws Exception;
 
 }

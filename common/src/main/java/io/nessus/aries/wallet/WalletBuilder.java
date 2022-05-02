@@ -21,19 +21,19 @@ import com.google.gson.Gson;
 
 import io.nessus.aries.AgentConfiguration;
 import io.nessus.aries.AriesClientFactory;
+import io.nessus.aries.util.AssertState;
 
 public class WalletBuilder {
     
     static final Logger log = LoggerFactory.getLogger(WalletBuilder.class);
     static final Gson gson = GsonConfig.defaultConfig();
     
-    public static final WalletRegistry walletRegistry = new WalletRegistry();
-
     private String walletName;
     private String walletKey;
     private AgentConfiguration agentConfig = AgentConfiguration.defaultConfiguration();
     private WalletDispatchType dispatchType = WalletDispatchType.DEFAULT;
     private WalletType walletType = WalletType.INDY;
+    private WalletRegistry walletRegistry;
     private WalletRecord trusteeWallet;
     private IndyLedgerRoles ledgerRole;
     private boolean selfRegister;
@@ -47,18 +47,22 @@ public class WalletBuilder {
         return this;
     }
     
-    public WalletBuilder key(String key) {
+    public WalletBuilder walletKey(String key) {
         this.walletKey = key;
         return this;
     }
 
-    public WalletBuilder type(WalletType type) {
+    public WalletBuilder walletType(WalletType type) {
         this.walletType = type;
         return this;
     }
 
+    public WalletBuilder dispatchType(WalletDispatchType dispatchType) {
+        this.dispatchType = dispatchType;
+        return this;
+    }
+
     public WalletBuilder ledgerRole(IndyLedgerRoles role) {
-        this.selfRegister = true;
         this.ledgerRole = role;
         return this;
     }
@@ -68,7 +72,7 @@ public class WalletBuilder {
         return this;
     }
     
-    public WalletBuilder registerNym(WalletRecord trusteeWallet) {
+    public WalletBuilder trusteeWallet(WalletRecord trusteeWallet) {
         this.trusteeWallet = trusteeWallet;
         return this;
     }
@@ -78,6 +82,11 @@ public class WalletBuilder {
             .registerWithDID(alias, did, vkey, role);
     }
 
+    public WalletBuilder walletRegistry(WalletRegistry walletRegistry) {
+        this.walletRegistry = walletRegistry;
+        return this;
+    }
+    
     public WalletRecord build() throws IOException {
         
         CreateWalletRequest walletRequest = CreateWalletRequest.builder()
@@ -93,28 +102,16 @@ public class WalletBuilder {
         String walletId = walletRecord.getWalletId();
         log.info("{}: [{}] {}", walletName, walletId, walletRecord);
 
-        String accessToken = walletRecord.getToken();
-        log.info("{} Token: {}", walletName, accessToken);
-
-        if (selfRegister || trusteeWallet != null) {
+        if (ledgerRole != null) {
             
-            DID did = null;
+            AssertState.isTrue(selfRegister || trusteeWallet != null, "LedgerRole " + ledgerRole + " requires selfRegister or trusteeWallet");
+            
+            // Create a local DID for the wallet
             AriesClient client = AriesClientFactory.createClient(walletRecord, agentConfig);
+            DID did = client.walletDidCreate(DIDCreate.builder().build()).get();
+            log.info("{}: {}", walletName, did);
             
-            if (selfRegister) {
-                
-                // Create a local DID for the wallet
-                did = client.walletDidCreate(DIDCreate.builder().build()).get();
-                log.info("{}: {}", walletName, did);
-                
-                // Register DID with the leder (out-of-band)
-                selfRegisterWithDid(walletName, did.getDid(), did.getVerkey(), ledgerRole);
-                
-            } else if (trusteeWallet != null) {
-                
-                // Create a local DID for the wallet
-                did = client.walletDidCreate(DIDCreate.builder().build()).get();
-                log.info("{}: {}", walletName, did);
+            if (trusteeWallet != null) {
                 
                 AriesClient trustee = AriesClientFactory.createClient(trusteeWallet, agentConfig);
                 String trusteeName = trusteeWallet.getSettings().getWalletName();
@@ -123,7 +120,11 @@ public class WalletBuilder {
                         .verkey(did.getVerkey())
                         .role(ledgerRole)
                         .build()).get();
-                log.info("{}: {}", trusteeName, nymResponse);
+                log.info("{} for {}: {}", trusteeName, walletName, nymResponse);
+            } 
+            else if (selfRegister) {
+                // Register DID with the leder (out-of-band)
+                selfRegisterWithDid(walletName, did.getDid(), did.getVerkey(), ledgerRole);
             }
             
             // Set the public DID for the wallet
@@ -131,9 +132,11 @@ public class WalletBuilder {
             
             DIDEndpoint didEndpoint = client.walletGetDidEndpoint(did.getDid()).get();
             log.info("{}: {}", walletName, didEndpoint);
-        }
+        } 
         
-        walletRegistry.putWallet(walletRecord);
+        if (walletRegistry != null)
+            walletRegistry.putWallet(walletRecord);
+        
         return walletRecord;
     }
 }

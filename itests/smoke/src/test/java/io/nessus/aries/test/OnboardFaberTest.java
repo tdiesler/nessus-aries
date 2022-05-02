@@ -24,7 +24,7 @@ public class OnboardFaberTest extends AbstractAriesTest {
 
         // Onboard an ENDORSER wallet
         WalletRecord faberWallet = new WalletBuilder("Faber")
-                .registerNym(govrnWallet).ledgerRole(ENDORSER).build();
+                .trusteeWallet(govrnWallet).ledgerRole(ENDORSER).build();
         
         try {
             AriesClient faber = createClient(faberWallet);

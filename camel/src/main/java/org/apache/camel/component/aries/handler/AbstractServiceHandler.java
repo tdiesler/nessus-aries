@@ -18,17 +18,31 @@ public abstract class AbstractServiceHandler implements ServiceHandler {
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
     protected final HyperledgerAriesEndpoint endpoint;
-    protected final String service;
     
-    public AbstractServiceHandler(HyperledgerAriesEndpoint endpoint, String service) {
+    public AbstractServiceHandler(HyperledgerAriesEndpoint endpoint) {
         this.endpoint = endpoint;
-        this.service = service;
+    }
+    
+    protected String getServicePathToken(String service, int idx) {
+        return service.split("/")[idx + 1];
     }
     
     public <T> T assertBody(Exchange exchange, Class<T> type) {
         T body = exchange.getIn().getBody(type);
         AssertState.notNull(body, "Cannot obtain body of type: " + type.getName());
         return body;
+    }
+
+    public boolean hasHeader(Exchange exchange, String key) {
+        return exchange.getIn().getHeader(key) != null;
+    }
+    
+    public <T> T getHeader(Exchange exchange, Class<T> type) {
+        return getHeader(exchange, type.getName(), type);
+    }
+    
+    public <T> T assertHeader(Exchange exchange, Class<T> type) {
+        return assertHeader(exchange, type.getName(), type);
     }
 
     public <T> T getHeader(Exchange exchange, String key, Class<T> type) {
@@ -50,7 +64,7 @@ public abstract class AbstractServiceHandler implements ServiceHandler {
     }
     
     public AriesClient baseClient() {
-        return endpoint.baseClient();
+        return getComponent().baseClient();
     }
     
     public AriesClient createClient() throws IOException {
@@ -58,6 +72,6 @@ public abstract class AbstractServiceHandler implements ServiceHandler {
     }
     
     public AriesClient createClient(WalletRecord walletRecord) throws IOException {
-        return endpoint.createClient(walletRecord);
+        return getComponent().createClient(walletRecord);
     }
 }

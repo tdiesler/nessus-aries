@@ -20,8 +20,11 @@ import static org.apache.camel.component.aries.Constants.HEADER_SERVICE;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.component.aries.handler.AbstractServiceHandler;
+import org.apache.camel.component.aries.handler.ConnectionsServiceHandler;
 import org.apache.camel.component.aries.handler.CredentialDefinitionsServiceHandler;
+import org.apache.camel.component.aries.handler.IssueCredentialServiceHandler;
 import org.apache.camel.component.aries.handler.MultitenancyServiceHandler;
+import org.apache.camel.component.aries.handler.PresentProofServiceHandler;
 import org.apache.camel.component.aries.handler.RevocationServiceHandler;
 import org.apache.camel.component.aries.handler.SchemasServiceHandler;
 import org.apache.camel.component.aries.handler.WalletServiceHandler;
@@ -50,25 +53,34 @@ public class HyperledgerAriesProducer extends DefaultProducer {
         AbstractServiceHandler serviceHandler;
         
         String service = getService(exchange);
-        if (service.startsWith("/credential-definitions")) {
-            serviceHandler = new CredentialDefinitionsServiceHandler(getEndpoint(), service);
+        if (service.startsWith("/connections")) {
+            serviceHandler = new ConnectionsServiceHandler(getEndpoint());
+        }
+        else if (service.startsWith("/credential-definitions")) {
+            serviceHandler = new CredentialDefinitionsServiceHandler(getEndpoint());
+        }
+        else if (service.startsWith("/issue-credential")) {
+            serviceHandler = new IssueCredentialServiceHandler(getEndpoint());
         }
         else if (service.startsWith("/multitenancy")) {
-            serviceHandler = new MultitenancyServiceHandler(getEndpoint(), service);
+            serviceHandler = new MultitenancyServiceHandler(getEndpoint());
+        }
+        else if (service.startsWith("/present-proof")) {
+            serviceHandler = new PresentProofServiceHandler(getEndpoint());
         }
         else if (service.startsWith("/revocation")) {
-            serviceHandler = new RevocationServiceHandler(getEndpoint(), service);
+            serviceHandler = new RevocationServiceHandler(getEndpoint());
         }
         else if (service.startsWith("/schemas")) {
-            serviceHandler = new SchemasServiceHandler(getEndpoint(), service);
+            serviceHandler = new SchemasServiceHandler(getEndpoint());
         }
         else if (service.startsWith("/wallet")) {
-            serviceHandler = new WalletServiceHandler(getEndpoint(), service);
+            serviceHandler = new WalletServiceHandler(getEndpoint());
         }
         else throw new UnsupportedServiceException(service);
         
         log.debug("{}: service={} req={}", getWalletName(), service, exchange.getIn().getBody());
-        serviceHandler.process(exchange);
+        serviceHandler.process(exchange, service);
         log.debug("{}: service={} res={}", getWalletName(), service, exchange.getIn().getBody());
     }
 
@@ -78,9 +90,9 @@ public class HyperledgerAriesProducer extends DefaultProducer {
     }
 
     private String getService(Exchange exchange) {
-        String service = getEndpoint().getConfiguration().getService();
+        String service = exchange.getIn().getHeader(HEADER_SERVICE, String.class);
         if (service == null)
-            service = exchange.getIn().getHeader(HEADER_SERVICE, String.class);
+            service = getEndpoint().getConfiguration().getService();
         AssertState.notNull(service, "Cannot obtain API service");
         if (!service.startsWith("/")) 
             service = "/" + service;

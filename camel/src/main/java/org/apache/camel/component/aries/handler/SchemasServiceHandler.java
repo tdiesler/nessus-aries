@@ -8,12 +8,12 @@ import org.hyperledger.aries.api.schema.SchemaSendResponse;
 
 public class SchemasServiceHandler extends AbstractServiceHandler {
     
-    public SchemasServiceHandler(HyperledgerAriesEndpoint endpoint, String service) {
-        super(endpoint, service);
+    public SchemasServiceHandler(HyperledgerAriesEndpoint endpoint) {
+        super(endpoint);
     }
 
     @Override
-    public void process(Exchange exchange) throws Exception {
+    public void process(Exchange exchange, String service) throws Exception {
         if (service.equals("/schemas")) {
             SchemaSendRequest reqObj = assertBody(exchange, SchemaSendRequest.class);
             SchemaSendResponse resObj = createClient().schemas(reqObj).get();

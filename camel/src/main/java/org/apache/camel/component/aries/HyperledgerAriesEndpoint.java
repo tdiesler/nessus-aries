@@ -30,9 +30,6 @@ import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.nessus.aries.AgentConfiguration;
-import io.nessus.aries.AriesClientFactory;
-import io.nessus.aries.util.AssertArg;
 import io.nessus.aries.util.AssertState;
 
 /**
@@ -78,20 +75,9 @@ public class HyperledgerAriesEndpoint extends DefaultEndpoint {
         return getComponent().getWalletByName(getWalletName());
     }
     
-    public AriesClient baseClient() {
-        AgentConfiguration agentConfig = getComponent().getAgentConfiguration();
-        return AriesClientFactory.baseClient(agentConfig);
-    }
-    
     public AriesClient createClient() throws IOException {
         WalletRecord walletRecord = getWalletRecord();
         AssertState.notNull(walletRecord, "No WalletRecord for: " + getWalletRecord());
-        return createClient(walletRecord);
-    }
-
-    public AriesClient createClient(WalletRecord walletRecord) throws IOException {
-        AssertArg.notNull(walletRecord, "No WalletRecord");
-        AgentConfiguration agentConfig = getComponent().getAgentConfiguration();
-        return AriesClientFactory.createClient(walletRecord, agentConfig);
+        return getComponent().createClient(walletRecord);
     }
 }

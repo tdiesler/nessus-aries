@@ -14,7 +14,6 @@ import com.google.gson.Gson;
 
 import io.nessus.aries.AriesClientFactory;
 import io.nessus.aries.coms.WebSockets;
-import io.nessus.aries.wallet.WalletBuilder;
 import io.nessus.aries.wallet.WalletRegistry;
 import okhttp3.WebSocket;
 
@@ -24,6 +23,8 @@ public abstract class AbstractAriesTest {
     
     public static final Gson gson = GsonConfig.defaultConfig();
     
+    public static final WalletRegistry walletRegistry = new WalletRegistry();
+
     /**
      * Create a client for a multitenant wallet
      */
@@ -32,7 +33,7 @@ public abstract class AbstractAriesTest {
     }
 
     public WalletRegistry getWalletRegistry() {
-        return WalletBuilder.walletRegistry;
+        return walletRegistry;
     }
     
     public void closeWebSocket(WebSocket wsocket) {
@@ -55,7 +56,7 @@ public abstract class AbstractAriesTest {
             // Wait for the wallet to get removed 
             sleepWell(500); 
             while (!baseClient.multitenancyWallets(walletName).get().isEmpty()) {
-                sleepWell(1000); 
+                sleepWell(500); 
             }
         }
     }
