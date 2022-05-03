@@ -65,7 +65,7 @@ import io.nessus.aries.wallet.WalletBuilder;
 /**
  * docker compose up --detach && docker compose logs -f acapy
  */
-public class GettingStartedTest extends AbstractAriesTest {
+public class AriesGettingStartedTest extends AbstractAriesTest {
 
     static final String Government = "Government";
     static final String Faber = "Faber";

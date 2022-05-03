@@ -4,6 +4,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
 
+import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.multitenancy.RemoveWalletRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
@@ -26,6 +27,7 @@ public class NessusWallet extends WalletRecord implements Closeable {
     
     private WalletRegistry walletRegistry;
     private WebSocket webSocket;
+    private DID publicDid;
     
     public static NessusWallet build(WalletRecord wr) {
         String json = gson.toJson(wr);
@@ -40,6 +42,14 @@ public class NessusWallet extends WalletRecord implements Closeable {
     
     public String getWalletName() {
         return getSettings().getWalletName();
+    }
+
+    public DID getPublicDid() {
+        return publicDid;
+    }
+
+    public void setPublicDid(DID publicDid) {
+        this.publicDid = publicDid;
     }
 
     public WalletRegistry getWalletRegistry() {
@@ -71,8 +81,15 @@ public class NessusWallet extends WalletRecord implements Closeable {
     
     @Override
     public void close() throws IOException {
-        log.info("Close Wallet: {}", getWalletName());
         WebSockets.closeWebSocket(webSocket);
+        webSocket = null;
+    }
+
+    public void closeAndRemove() throws IOException {
+        
+        log.info("Close Wallet: {}", getWalletName());
+        close();
+        
         AriesClient baseClient = AriesClientFactory.baseClient();
         baseClient.multitenancyWalletRemove(getWalletId(), RemoveWalletRequest.builder()
                 .walletKey(getToken())

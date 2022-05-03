@@ -27,12 +27,15 @@ public class HyperledgerAriesConfiguration {
     @UriPath(description = "The wallet to connect to")
     @Metadata(required = true)
     private String wallet;
-    @UriParam(description = "The path to call")
+    @UriParam(description = "An ACA-Py API path")
     @Metadata(required = false)
     private String service;
-    @UriParam(description = "A schema name when omitted from the payload")
+    @UriParam(description = "A schema name")
     @Metadata(required = false)
     private String schemaName;
+    @UriParam(description = "A schema version")
+    @Metadata(required = false)
+    private String schemaVersion;
 
     public String getWallet() {
         return wallet;
@@ -56,5 +59,13 @@ public class HyperledgerAriesConfiguration {
 
     public void setSchemaName(String schemaName) {
         this.schemaName = schemaName;
+    }
+
+    public String getSchemaVersion() {
+        return schemaVersion;
+    }
+
+    public void setSchemaVersion(String schemaVersion) {
+        this.schemaVersion = schemaVersion;
     }
 }

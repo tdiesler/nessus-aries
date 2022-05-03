@@ -33,7 +33,7 @@ public abstract class AbstractAriesTest {
     public void afterEach() throws Exception {
         for (String name : walletRegistry.getWalletNames()) {
             NessusWallet wallet = walletRegistry.getWalletByName(name);
-            wallet.close();
+            wallet.closeAndRemove();
         }
     }
     

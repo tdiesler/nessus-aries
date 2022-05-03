@@ -135,6 +135,7 @@ public class WalletBuilder {
             
             // Set the public DID for the wallet
             client.walletDidPublic(did.getDid());
+            nessusWallet.setPublicDid(did);
             
             DIDEndpoint didEndpoint = client.walletGetDidEndpoint(did.getDid()).get();
             log.info("{}: {}", walletName, didEndpoint);

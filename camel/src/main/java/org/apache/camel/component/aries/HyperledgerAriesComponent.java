@@ -17,7 +17,6 @@
 package org.apache.camel.component.aries;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -26,7 +25,6 @@ import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.annotations.Component;
 import org.apache.camel.support.DefaultComponent;
 import org.hyperledger.aries.AriesClient;
-import org.hyperledger.aries.api.multitenancy.RemoveWalletRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,21 +71,8 @@ public class HyperledgerAriesComponent extends DefaultComponent {
     @Override
     protected void doShutdown() throws Exception {
         if (removeWalletsOnShutdown) {
-            AgentConfiguration agentConfig = getAgentConfiguration();
-            AriesClient baseClient = AriesClientFactory.baseClient(agentConfig);
-            List<NessusWallet> wallets = walletRegistry.getWallets();
-            Collections.reverse(wallets);
-            for (NessusWallet wallet : wallets) {
-                String walletName = wallet.getSettings().getWalletName();
-                log.info("Remove Wallet: {}", walletName);
-                baseClient.multitenancyWalletRemove(wallet.getWalletId(), RemoveWalletRequest.builder()
-                        .walletKey(wallet.getToken())
-                        .build());
-                // Wait for the wallet to get removed 
-                Thread.sleep(500); 
-                while (!baseClient.multitenancyWallets(walletName).get().isEmpty()) {
-                    Thread.sleep(500); 
-                }
+            for (NessusWallet wallet : walletRegistry.getWallets()) {
+                wallet.closeAndRemove();
             }
         }
     }

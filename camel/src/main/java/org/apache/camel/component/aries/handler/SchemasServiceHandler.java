@@ -9,6 +9,8 @@ import org.apache.camel.component.aries.UnsupportedServiceException;
 import org.hyperledger.aries.api.schema.SchemaSendRequest;
 import org.hyperledger.aries.api.schema.SchemaSendResponse;
 
+import io.nessus.aries.util.AssertState;
+
 public class SchemasServiceHandler extends AbstractServiceHandler {
     
     public SchemasServiceHandler(HyperledgerAriesEndpoint endpoint) {
@@ -25,7 +27,11 @@ public class SchemasServiceHandler extends AbstractServiceHandler {
                 String schemaName = spec.get("schemaName");
                 if (schemaName == null)
                     schemaName = endpoint.getConfiguration().getSchemaName();
+                AssertState.notNull(schemaName, "Cannot obtain schemaName");
                 String schemaVersion = spec.get("schemaVersion");
+                if (schemaVersion == null)
+                    schemaVersion = endpoint.getConfiguration().getSchemaVersion();
+                AssertState.notNull(schemaVersion, "Cannot obtain schemaVersion");
                 String[] attributes = spec.get("attributes").split(",\\s*");
                 schemaReq = SchemaSendRequest.builder()
                         .schemaName(schemaName)

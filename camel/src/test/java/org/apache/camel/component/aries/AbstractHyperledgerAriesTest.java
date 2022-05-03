@@ -65,11 +65,6 @@ public abstract class AbstractHyperledgerAriesTest extends CamelTestSupport {
         log.info("{} {}", title, String.valueOf(tail));
     }
     
-    public void sleepWell(long millis) {
-        try { Thread.sleep(millis); } 
-        catch (InterruptedException ex) { /* ignore */ }
-    }
-    
     public NessusWallet onboardWallet(String walletName) throws IOException {
         return onboardWallet(walletName, null);
     }
