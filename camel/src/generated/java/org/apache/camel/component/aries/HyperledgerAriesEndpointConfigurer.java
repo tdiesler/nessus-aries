@@ -23,6 +23,8 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
         switch (ignoreCase ? name.toLowerCase() : name) {
         case "lazystartproducer":
         case "lazyStartProducer": target.setLazyStartProducer(property(camelContext, boolean.class, value)); return true;
+        case "schemaname":
+        case "schemaName": target.getConfiguration().setSchemaName(property(camelContext, java.lang.String.class, value)); return true;
         case "service": target.getConfiguration().setService(property(camelContext, java.lang.String.class, value)); return true;
         default: return false;
         }
@@ -33,6 +35,8 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
         switch (ignoreCase ? name.toLowerCase() : name) {
         case "lazystartproducer":
         case "lazyStartProducer": return boolean.class;
+        case "schemaname":
+        case "schemaName": return java.lang.String.class;
         case "service": return java.lang.String.class;
         default: return null;
         }
@@ -44,6 +48,8 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
         switch (ignoreCase ? name.toLowerCase() : name) {
         case "lazystartproducer":
         case "lazyStartProducer": return target.isLazyStartProducer();
+        case "schemaname":
+        case "schemaName": return target.getConfiguration().getSchemaName();
         case "service": return target.getConfiguration().getService();
         default: return null;
         }

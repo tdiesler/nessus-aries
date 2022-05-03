@@ -30,6 +30,9 @@ public class HyperledgerAriesConfiguration {
     @UriParam(description = "The path to call")
     @Metadata(required = false)
     private String service;
+    @UriParam(description = "A schema name when omitted from the payload")
+    @Metadata(required = false)
+    private String schemaName;
 
     public String getWallet() {
         return wallet;
@@ -45,5 +48,13 @@ public class HyperledgerAriesConfiguration {
 
     public void setService(String path) {
         this.service = path;
+    }
+
+    public String getSchemaName() {
+        return schemaName;
+    }
+
+    public void setSchemaName(String schemaName) {
+        this.schemaName = schemaName;
     }
 }

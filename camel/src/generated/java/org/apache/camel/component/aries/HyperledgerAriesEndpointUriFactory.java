@@ -21,10 +21,11 @@ public class HyperledgerAriesEndpointUriFactory extends org.apache.camel.support
     private static final Set<String> SECRET_PROPERTY_NAMES;
     private static final Set<String> MULTI_VALUE_PREFIXES;
     static {
-        Set<String> props = new HashSet<>(3);
+        Set<String> props = new HashSet<>(4);
         props.add("lazyStartProducer");
         props.add("wallet");
         props.add("service");
+        props.add("schemaName");
         PROPERTY_NAMES = Collections.unmodifiableSet(props);
         SECRET_PROPERTY_NAMES = Collections.emptySet();
         MULTI_VALUE_PREFIXES = Collections.emptySet();

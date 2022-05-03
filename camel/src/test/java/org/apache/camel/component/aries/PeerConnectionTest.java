@@ -17,9 +17,6 @@ import org.junit.jupiter.api.Test;
  */
 public class PeerConnectionTest extends AbstractHyperledgerAriesTest {
 
-    static final String Faber = "Faber";
-    static final String Alice = "Alice";
-    
     @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
