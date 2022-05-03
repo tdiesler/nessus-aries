@@ -67,6 +67,11 @@ public class WalletBuilder {
         return this;
     }
     
+    public WalletBuilder selfRegisterNym(boolean flag) {
+        this.selfRegister = flag;
+        return this;
+    }
+    
     public WalletBuilder selfRegisterNym() {
         this.selfRegister = true;
         return this;
@@ -87,7 +92,7 @@ public class WalletBuilder {
         return this;
     }
     
-    public WalletRecord build() throws IOException {
+    public NessusWallet build() throws IOException {
         
         CreateWalletRequest walletRequest = CreateWalletRequest.builder()
                 .walletKey(walletKey != null ? walletKey : walletName + "Key")
@@ -99,15 +104,16 @@ public class WalletBuilder {
         
         AriesClient baseClient = AriesClientFactory.baseClient(agentConfig);
         WalletRecord walletRecord = baseClient.multitenancyWalletCreate(walletRequest).get();
-        String walletId = walletRecord.getWalletId();
-        log.info("{}: [{}] {}", walletName, walletId, walletRecord);
+        NessusWallet nessusWallet = NessusWallet.build(walletRecord).withWalletRegistry(walletRegistry);
+        String walletId = nessusWallet.getWalletId();
+        log.info("{}: [{}] {}", walletName, walletId, nessusWallet);
 
         if (ledgerRole != null) {
             
             AssertState.isTrue(selfRegister || trusteeWallet != null, "LedgerRole " + ledgerRole + " requires selfRegister or trusteeWallet");
             
             // Create a local DID for the wallet
-            AriesClient client = AriesClientFactory.createClient(walletRecord, agentConfig);
+            AriesClient client = AriesClientFactory.createClient(nessusWallet, agentConfig);
             DID did = client.walletDidCreate(DIDCreate.builder().build()).get();
             log.info("{}: {}", walletName, did);
             
@@ -135,9 +141,9 @@ public class WalletBuilder {
         } 
         
         if (walletRegistry != null)
-            walletRegistry.putWallet(walletRecord);
+            walletRegistry.putWallet(nessusWallet);
         
-        return walletRecord;
+        return nessusWallet;
     }
 }
 

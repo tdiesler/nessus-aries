@@ -17,6 +17,8 @@
 package org.apache.camel.component.aries;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
@@ -31,8 +33,12 @@ import org.slf4j.LoggerFactory;
 
 import io.nessus.aries.AgentConfiguration;
 import io.nessus.aries.AriesClientFactory;
+import io.nessus.aries.coms.WebSocketEventHandler;
 import io.nessus.aries.util.AssertArg;
+import io.nessus.aries.util.AssertState;
+import io.nessus.aries.wallet.NessusWallet;
 import io.nessus.aries.wallet.WalletRegistry;
+import okhttp3.WebSocket;
 
 @Component("hyperledger-aries")
 public class HyperledgerAriesComponent extends DefaultComponent {
@@ -53,10 +59,15 @@ public class HyperledgerAriesComponent extends DefaultComponent {
         HyperledgerAriesEndpoint endpoint = new HyperledgerAriesEndpoint(uri, this, configuration);
         setProperties(endpoint, parameters);
 
-        // after configuring endpoint then get or create xchange instance
-        // endpoint.setXchange(null);
-
         return endpoint;
+    }
+
+    public boolean isRemoveWalletsOnShutdown() {
+        return removeWalletsOnShutdown;
+    }
+
+    public void setRemoveWalletsOnShutdown(boolean removeWalletsOnShutdown) {
+        this.removeWalletsOnShutdown = removeWalletsOnShutdown;
     }
 
     @Override
@@ -64,7 +75,9 @@ public class HyperledgerAriesComponent extends DefaultComponent {
         if (removeWalletsOnShutdown) {
             AgentConfiguration agentConfig = getAgentConfiguration();
             AriesClient baseClient = AriesClientFactory.baseClient(agentConfig);
-            for (WalletRecord wallet : walletRegistry.getWallets()) {
+            List<NessusWallet> wallets = walletRegistry.getWallets();
+            Collections.reverse(wallets);
+            for (NessusWallet wallet : wallets) {
                 String walletName = wallet.getSettings().getWalletName();
                 log.info("Remove Wallet: {}", walletName);
                 baseClient.multitenancyWalletRemove(wallet.getWalletId(), RemoveWalletRequest.builder()
@@ -79,14 +92,6 @@ public class HyperledgerAriesComponent extends DefaultComponent {
         }
     }
 
-    public boolean isRemoveWalletsOnShutdown() {
-        return removeWalletsOnShutdown;
-    }
-
-    public void setRemoveWalletsOnShutdown(boolean removeWalletsOnShutdown) {
-        this.removeWalletsOnShutdown = removeWalletsOnShutdown;
-    }
-
     public AgentConfiguration getAgentConfiguration() {
         if (agentConfig == null) {
             agentConfig = AgentConfiguration.defaultConfiguration();
@@ -98,14 +103,34 @@ public class HyperledgerAriesComponent extends DefaultComponent {
         return walletRegistry;
     }
 
-    public void addWallet(WalletRecord wallet) {
+    public List<String> getWalletNames() {
+        return walletRegistry.getWalletNames();
+    }
+    
+    public void addWallet(NessusWallet wallet) {
         walletRegistry.putWallet(wallet);
     }
     
-    public WalletRecord getWalletByName(String walletName) {
+    public NessusWallet getWallet(String walletName) {
         return walletRegistry.getWalletByName(walletName);
     }
 
+    public NessusWallet assertWallet(String walletName) {
+        NessusWallet wallet = walletRegistry.getWalletByName(walletName);
+        AssertState.notNull(wallet, "Cannot obtain wallet for: " + walletName);
+        return wallet;
+    }
+
+    public WebSocket getWebSocket(String walletName) {
+        NessusWallet wallet = assertWallet(walletName);
+        return wallet.getWebSocket();
+    }
+    
+    public WebSocketEventHandler getWebSocketEventHandler(String walletName) {
+        NessusWallet wallet = assertWallet(walletName);
+        return wallet.getWebSocketEventHandler();
+    }
+    
     public AriesClient baseClient() {
         AgentConfiguration agentConfig = getAgentConfiguration();
         return AriesClientFactory.baseClient(agentConfig);

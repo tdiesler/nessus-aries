@@ -8,13 +8,14 @@ import java.util.List;
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionState;
-import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.nessus.aries.wallet.ConnectionHelper;
-import io.nessus.aries.wallet.WalletBuilder;
 import io.nessus.aries.wallet.ConnectionHelper.ConnectionResult;
+import io.nessus.aries.wallet.NessusWallet;
+
+import io.nessus.aries.wallet.WalletBuilder;
 
 /**
  * Test RFC 0160: Connection Protocol with multitenant wallets
@@ -27,11 +28,11 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
     void testMultitenantWallets() throws Exception {
         
         // Create multitenant wallets
-        WalletRecord inviterWallet = new WalletBuilder("Faber")
+        NessusWallet inviterWallet = new WalletBuilder("Faber")
                 .ledgerRole(ENDORSER).selfRegisterNym().build();
         
         // Alice does not have a public DID
-        WalletRecord inviteeWallet = new WalletBuilder("Alice").build();
+        NessusWallet inviteeWallet = new WalletBuilder("Alice").build();
                 
         try {
             
@@ -58,8 +59,8 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
             Assertions.assertEquals(ConnectionState.ACTIVE, aliceConnections.get(0).getState());
             
         } finally {
-            removeWallet(inviteeWallet);
-            removeWallet(inviterWallet);
+            inviterWallet.close();
+            inviteeWallet.close();
         }
     }
 }

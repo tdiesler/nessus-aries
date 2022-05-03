@@ -16,11 +16,11 @@ public final class WebSockets {
 
     public static final OkHttpClient httpClient = HttpClientFactory.createHttpClient();
 
-    public static WebSocket createWebSocket(WalletRecord wallet, WebSocketEventHandler handler) {
-        return createWebSocket(AgentConfiguration.defaultConfiguration(), wallet, handler);
+    public static WebSocket createWebSocket_(WalletRecord wallet, WebSocketEventHandler handler) {
+        return createWebSocket_(AgentConfiguration.defaultConfiguration(), wallet, handler);
     }
     
-    public static WebSocket createWebSocket(AgentConfiguration config, WalletRecord wallet, WebSocketEventHandler handler) {
+    public static WebSocket createWebSocket_(AgentConfiguration config, WalletRecord wallet, WebSocketEventHandler handler) {
         handler.init(wallet);
         String walletName = wallet.getSettings().getWalletName();
         WebSocket webSocket = httpClient.newWebSocket(new Request.Builder()

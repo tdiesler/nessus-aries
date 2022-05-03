@@ -3,6 +3,7 @@ package org.apache.camel.component.aries.handler;
 import org.apache.camel.Exchange;
 import org.apache.camel.component.aries.HyperledgerAriesEndpoint;
 import org.apache.camel.component.aries.UnsupportedServiceException;
+import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.CreateInvitationRequest;
@@ -23,7 +24,14 @@ public class ConnectionsServiceHandler extends AbstractServiceHandler {
             exchange.getIn().setBody(resObj);
         }
         else if (service.equals("/connections/receive-invitation")) {
-            ReceiveInvitationRequest reqObj = assertBody(exchange, ReceiveInvitationRequest.class);
+            ReceiveInvitationRequest reqObj = getBody(exchange, ReceiveInvitationRequest.class);
+            if (reqObj == null) {
+                ConnectionInvitation invitation = assertBody(exchange, ConnectionInvitation.class);
+                reqObj = ReceiveInvitationRequest.builder()
+                        .recipientKeys(invitation.getRecipientKeys())
+                        .serviceEndpoint(invitation.getServiceEndpoint())
+                        .build();
+            }
             ConnectionReceiveInvitationFilter filter = getHeader(exchange, ConnectionReceiveInvitationFilter.class);
             ConnectionRecord resObj = createClient().connectionsReceiveInvitation(reqObj, filter).get();
             exchange.getIn().setBody(resObj);

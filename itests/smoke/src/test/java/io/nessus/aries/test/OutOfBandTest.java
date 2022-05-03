@@ -8,7 +8,6 @@ import java.util.List;
 import org.hyperledger.acy_py.generated.model.InvitationRecord;
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
-import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.api.out_of_band.CreateInvitationFilter;
 import org.hyperledger.aries.api.out_of_band.InvitationCreateRequest;
 import org.hyperledger.aries.api.out_of_band.InvitationMessage;
@@ -16,6 +15,7 @@ import org.hyperledger.aries.api.out_of_band.ReceiveInvitationFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.nessus.aries.wallet.NessusWallet;
 import io.nessus.aries.wallet.WalletBuilder;
 
 /**
@@ -29,10 +29,10 @@ public class OutOfBandTest extends AbstractAriesTest {
     void testOutOfBand() throws Exception {
 
         // Create multitenant wallets
-        WalletRecord faberWallet = new WalletBuilder("Faber")
+        NessusWallet faberWallet = new WalletBuilder("Faber")
                 .ledgerRole(ENDORSER).selfRegisterNym().build();
         
-        WalletRecord aliceWallet = new WalletBuilder("Alice").build();
+        NessusWallet aliceWallet = new WalletBuilder("Alice").build();
         
         try {
             AriesClient alice = createClient(aliceWallet);
@@ -53,8 +53,8 @@ public class OutOfBandTest extends AbstractAriesTest {
             //assertConnectionState(faberWallet, ConnectionState.INVITATION);
             
         } finally {
-            removeWallet(aliceWallet);
-            removeWallet(faberWallet);
+            aliceWallet.close();
+            faberWallet.close();
         }
     }
 

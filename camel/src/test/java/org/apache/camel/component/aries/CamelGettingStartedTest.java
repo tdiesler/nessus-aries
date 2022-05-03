@@ -75,26 +75,16 @@ import com.google.gson.JsonObject;
 import io.nessus.aries.coms.EventSubscriber;
 import io.nessus.aries.coms.WebSocketEventHandler;
 import io.nessus.aries.coms.WebSocketEventHandler.WebSocketEvent;
-import io.nessus.aries.coms.WebSockets;
 import io.nessus.aries.util.AssertState;
-import io.nessus.aries.util.AttachmentKey;
-import io.nessus.aries.util.AttachmentSupport;
 import io.nessus.aries.util.SafeConsumer;
 import io.nessus.aries.wallet.CredentialProposalHelper;
-import okhttp3.WebSocket;
 
 /**
  * docker compose up --detach && docker compose logs -f acapy
  */
 //@EnabledIfSystemProperty(named = "enable.aries.itests", matches = "true", disabledReason = "Requires API credentials")
-public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
+public class CamelGettingStartedTest extends AbstractHyperledgerAriesTest {
 
-    static final String Government = "Government";
-    static final String Faber = "Faber";
-    static final String Acme = "Acme";
-    static final String Thrift = "Thrift";
-    static final String Alice = "Alice";
-    
     static final String TranscriptSchemaId = "TranscriptSchemaId";
     static final String TranscriptCredDefId = "TranscriptSchemaId";
     static final String JobCertificateSchemaId = "JobCertificateSchemaId";
@@ -127,42 +117,11 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         };
     }
     
-    class WalkthroughContext extends AttachmentSupport {
-
-        ConnectionRecord getConnection(String inviter, String invitee) {
-            return getAttachment(inviter + invitee + "Connection", ConnectionRecord.class);
-        }
-
-        WebSocket getWebSocket(String name) {
-            return getAttachment(name, WebSocket.class);
-        }
-        
-        <T> T getAttachment(String name, Class<T> type) {
-            return getAttachment(new AttachmentKey<>(name, type));
-        }
-        
-        <T> T putAttachment(String name,  Class<T> type, T obj) {
-            return putAttachment(new AttachmentKey<T>(name, type), obj);
-        }
-        
-        @SuppressWarnings("unchecked")
-        <T> T putAttachment(String name,  T obj) {
-            return putAttachment(new AttachmentKey<T>(name, (Class<T>) obj.getClass()), obj);
-        }
-    }
-
     @Test
     public void testWorkflow() throws Exception {
-        WalkthroughContext ctx = new WalkthroughContext();
+        
         getComponent().setRemoveWalletsOnShutdown(true);
-        try {
-            doWorkflow(ctx);
-        } finally {
-            closeWebSockets(ctx);
-        }
-    }
-
-    void doWorkflow(WalkthroughContext ctx) throws Exception {
+        AttachmentContext ctx = getAttachmentContext();
         
         /*
          * Onboard Government Wallet and DID
@@ -358,7 +317,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         applyForLoanWithThrift(ctx, false);
     }
 
-    void onboardGovernment(WalkthroughContext ctx) throws IOException {
+    public void onboardGovernment(AttachmentContext ctx) throws IOException {
 
         String walletName = Government;
         logSection("Onboard " + walletName);
@@ -370,7 +329,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                 .walletName(walletName)
                 .build();
 
-        WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
+        template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
                 HEADER_MULTITENANCY_LEDGER_ROLE, TRUSTEE,
                 HEADER_MULTITENANCY_SELF_REGISTER_NYM, true), 
                 WalletRecord.class);
@@ -378,16 +337,9 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         
         DID publicDid = template.requestBodyAndHeaders("direct:government", null, Map.of(HEADER_SERVICE, "/wallet/did/public"), DID.class);
         Assertions.assertNotNull(publicDid, "Public DID not null");
-        
-        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(Arrays.asList(), ev -> log.warn("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(getComponent().getWalletRegistry())
-                .build());
-        
-        ctx.putAttachment(Government, WebSocket.class, webSocket);
     }
 
-    void onboardFaberCollege(WalkthroughContext ctx) throws IOException {
+    public void onboardFaberCollege(AttachmentContext ctx) throws IOException {
 
         String walletName = Faber;
         logSection("Onboard " + walletName);
@@ -399,23 +351,16 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                 .walletName(walletName)
                 .build();
 
-        WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
+        template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
                 HEADER_MULTITENANCY_TRUSTEE_WALLET, Government, 
                 HEADER_MULTITENANCY_LEDGER_ROLE, ENDORSER),
                 WalletRecord.class);
         
         DID publicDid = template.requestBodyAndHeaders("direct:faber", null, Map.of(HEADER_SERVICE, "/wallet/did/public"), DID.class);
         Assertions.assertNotNull(publicDid, "Public DID not null");
-        
-        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(getComponent().getWalletRegistry())
-                .build());
-        
-        ctx.putAttachment(Faber, WebSocket.class, webSocket);
     }
 
-    void onboardAcmeCorp(WalkthroughContext ctx) throws IOException {
+    public void onboardAcmeCorp(AttachmentContext ctx) throws IOException {
 
         String walletName = Acme;
         logSection("Onboard " + walletName);
@@ -427,23 +372,16 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                 .walletName(walletName)
                 .build();
         
-        WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
+        template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
                 HEADER_MULTITENANCY_TRUSTEE_WALLET, Government, 
                 HEADER_MULTITENANCY_LEDGER_ROLE, ENDORSER),
                 WalletRecord.class);
 
         DID publicDid = template.requestBodyAndHeaders("direct:acme", null, Map.of(HEADER_SERVICE, "/wallet/did/public"), DID.class);
         Assertions.assertNotNull(publicDid, "Public DID not null");
-        
-        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(getComponent().getWalletRegistry())
-                .build());
-        
-        ctx.putAttachment(Acme, WebSocket.class, webSocket);
     }
 
-    void onboardThriftBank(WalkthroughContext ctx) throws IOException {
+    public void onboardThriftBank(AttachmentContext ctx) throws IOException {
 
         String walletName = Thrift;
         logSection("Onboard " + walletName);
@@ -455,23 +393,16 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                 .walletName(walletName)
                 .build();
 
-        WalletRecord wallet = template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
+        template.requestBodyAndHeaders("direct:admin", walletRequest, Map.of(
                 HEADER_MULTITENANCY_TRUSTEE_WALLET, Government, 
                 HEADER_MULTITENANCY_LEDGER_ROLE, ENDORSER),
                 WalletRecord.class);
 
         DID publicDid = template.requestBodyAndHeaders("direct:thrift", null, Map.of(HEADER_SERVICE, "/wallet/did/public"), DID.class);
         Assertions.assertNotNull(publicDid, "Public DID not null");
-        
-        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(getComponent().getWalletRegistry())
-                .build());
-        
-        ctx.putAttachment(Thrift, WebSocket.class, webSocket);
     }
 
-    void onboardAlice(WalkthroughContext ctx) throws IOException {
+    public void onboardAlice(AttachmentContext ctx) throws IOException {
 
         String walletName = Alice;
         logSection("Onboard " + walletName);
@@ -483,17 +414,10 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                 .walletName(walletName)
                 .build();
 
-        WalletRecord wallet = template.requestBody("direct:admin", walletRequest, WalletRecord.class);
-        
-        WebSocket webSocket = WebSockets.createWebSocket(wallet, new WebSocketEventHandler.Builder()
-                .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                .walletRegistry(getComponent().getWalletRegistry())
-                .build());
-        
-        ctx.putAttachment(Alice, WebSocket.class, webSocket);
+        template.requestBody("direct:admin", walletRequest, WalletRecord.class);
     }
 
-    void connectPeers(WalkthroughContext ctx, String inviter, String invitee) throws Exception {
+    void connectPeers(AttachmentContext ctx, String inviter, String invitee) throws Exception {
 
         logSection(String.format("Connect %s to %s", inviter, invitee));
 
@@ -515,17 +439,11 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
             }
         };
         
-        WalletRecord inviterWallet = getComponent().getWalletByName(inviter);
-        WebSocket inviterSocket = WebSockets.createWebSocket(inviterWallet, new WebSocketEventHandler.Builder()
-                .walletRegistry(getComponent().getWalletRegistry())
-                .subscribe(ConnectionRecord.class, eventConsumer)
-                .build());
-        
-        WalletRecord inviteeWallet = getComponent().getWalletByName(invitee);
-        WebSocket inviteeSocket = WebSockets.createWebSocket(inviteeWallet, new WebSocketEventHandler.Builder()
-                .walletRegistry(getComponent().getWalletRegistry())
-                .subscribe(ConnectionRecord.class, eventConsumer)
-                .build());
+        WebSocketEventHandler inviterHandler = getComponent().getWebSocketEventHandler(inviter);
+        EventSubscriber<WebSocketEvent> inviterSubscriber = inviterHandler.subscribe(ConnectionRecord.class, eventConsumer);
+
+        WebSocketEventHandler inviteeHandler = getComponent().getWebSocketEventHandler(invitee);
+        EventSubscriber<WebSocketEvent> inviteeSubscriber = inviteeHandler.subscribe(ConnectionRecord.class, eventConsumer);
         
         // Inviter creates an invitation (/connections/create-invitation)
         UnaryOperator<String> uri = wn -> "direct:" + wn.toLowerCase();
@@ -554,14 +472,14 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         
         AssertState.isTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
         
-        WebSockets.closeWebSocket(inviterSocket);
-        WebSockets.closeWebSocket(inviteeSocket);
+        inviterSubscriber.cancelSubscription();
+        inviteeSubscriber.cancelSubscription();
         
         ctx.putAttachment(inviter + invitee + "Connection", inviterConnection[0]);
         ctx.putAttachment(invitee + inviter + "Connection", inviteeConnection[0]);
     }
 
-    void createTranscriptSchema(WalkthroughContext ctx) {
+    void createTranscriptSchema(AttachmentContext ctx) {
         
         logSection("Create Transcript Schema");
         
@@ -589,7 +507,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         ctx.putAttachment(TranscriptSchemaId, schemaResponse.getSchemaId());
     }
 
-    void createJobCertificateSchema(WalkthroughContext ctx) {
+    void createJobCertificateSchema(AttachmentContext ctx) {
 
         logSection("Create Job Certificate Schema");
         
@@ -615,7 +533,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         ctx.putAttachment(JobCertificateSchemaId, schemaResponse.getSchemaId());
     }
 
-    void createTranscriptCredentialDefinition(WalkthroughContext ctx) {
+    void createTranscriptCredentialDefinition(AttachmentContext ctx) {
 
         logSection("Create Transcript CredDef");
         
@@ -634,7 +552,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         ctx.putAttachment(TranscriptCredDefId, credDefResponse.getCredentialDefinitionId());
     }
 
-    void createJobCertificateCredentialDefinition(WalkthroughContext ctx) {
+    void createJobCertificateCredentialDefinition(AttachmentContext ctx) {
 
         logSection("Create Job Certificate CredDef");
         
@@ -671,7 +589,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         log.info("{}", revocRegistryRecord);
     }
 
-    void getTranscriptFromFaber(WalkthroughContext ctx) throws Exception {
+    void getTranscriptFromFaber(AttachmentContext ctx) throws Exception {
 
         logSection("Alice gets Transcript from Faber");
         
@@ -684,7 +602,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         CountDownLatch holderCredentialReceived = new CountDownLatch(1);
         CountDownLatch holderCredentialAcked = new CountDownLatch(1);
         
-        WebSocketEventHandler issuerHandler = WebSockets.getEventHandler(ctx.getWebSocket(Faber));
+        WebSocketEventHandler issuerHandler = getComponent().getWebSocketEventHandler(Faber);
         EventSubscriber<WebSocketEvent> issuerSubscriber = issuerHandler.subscribe(V1CredentialExchange.class, ev -> { 
                     V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
                     log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
@@ -694,7 +612,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                     }
                 });
 
-        WebSocketEventHandler holderHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        WebSocketEventHandler holderHandler = getComponent().getWebSocketEventHandler(Alice);
         EventSubscriber<WebSocketEvent> holderSubscriber = holderHandler.subscribe(V1CredentialExchange.class, ev -> { 
                     V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
                     log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
@@ -718,7 +636,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
          */
         
         String transcriptCredDefId = ctx.getAttachment(TranscriptCredDefId, String.class);
-        V1CredentialOfferRequest credentialOfferRequest = V1CredentialOfferRequest.builder()
+        V1CredentialOfferRequest credentialOffer = V1CredentialOfferRequest.builder()
                 .connectionId(faberAliceConnectionId)
                 .credentialDefinitionId(transcriptCredDefId)
                 .credentialPreview(new CredentialPreview(CredentialAttributes.from(Map.of(
@@ -731,7 +649,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                         "average", "5"))))
                 .build();
 
-        template.requestBodyAndHeaders("direct:faber", credentialOfferRequest, Map.of(
+        template.requestBodyAndHeaders("direct:faber", credentialOffer, Map.of(
                 HEADER_SERVICE, "/issue-credential/send-offer"), 
                 V1CredentialExchange.class);
 
@@ -800,7 +718,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         holderSubscriber.cancelSubscription();
     }
 
-    void applyForJobWithAcme(WalkthroughContext ctx) throws Exception {
+    void applyForJobWithAcme(AttachmentContext ctx) throws Exception {
 
         logSection("Alice applies for a Job with Acme");
         
@@ -813,7 +731,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         CountDownLatch verifierVerified = new CountDownLatch(1);
         CountDownLatch proverPresentationAcked = new CountDownLatch(1);
         
-        WebSocketEventHandler verifierHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
+        WebSocketEventHandler verifierHandler = getComponent().getWebSocketEventHandler(Acme);
         EventSubscriber<WebSocketEvent> verifierSubscriber = verifierHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
                     PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
                     log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
@@ -827,7 +745,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                     }
                 });
         
-        WebSocketEventHandler proverHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        WebSocketEventHandler proverHandler = getComponent().getWebSocketEventHandler(Alice);
         EventSubscriber<WebSocketEvent> proverSubscriber = proverHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
                     PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
                     log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
@@ -974,7 +892,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         proverSubscriber.cancelSubscription();
     }
 
-    void getJobWithAcme(WalkthroughContext ctx) throws Exception {
+    void getJobWithAcme(AttachmentContext ctx) throws Exception {
 
         logSection("Alice gets JobCertificate from Acme");
         
@@ -987,7 +905,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         CountDownLatch holderCredentialReceived = new CountDownLatch(1);
         CountDownLatch holderCredentialAcked = new CountDownLatch(1);
         
-        WebSocketEventHandler issuerHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
+        WebSocketEventHandler issuerHandler = getComponent().getWebSocketEventHandler(Acme);
         EventSubscriber<WebSocketEvent> issuerSubscriber = issuerHandler.subscribe(V1CredentialExchange.class, ev -> { 
                     V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
                     log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
@@ -997,7 +915,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                     }
                 });
 
-        WebSocketEventHandler holderHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        WebSocketEventHandler holderHandler = getComponent().getWebSocketEventHandler(Alice);
         EventSubscriber<WebSocketEvent> holderSubscriber = holderHandler.subscribe(V1CredentialExchange.class, ev -> { 
                     V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
                     log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
@@ -1102,7 +1020,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         holderSubscriber.cancelSubscription();
     }
 
-    void applyForLoanWithThrift(WalkthroughContext ctx, boolean expectedOutcome) throws Exception {
+    void applyForLoanWithThrift(AttachmentContext ctx, boolean expectedOutcome) throws Exception {
         
         logSection("Alice applies for a Loan with Thrift");
         
@@ -1115,7 +1033,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         CountDownLatch verifierVerified = new CountDownLatch(1);
         CountDownLatch proverPresentationAcked = new CountDownLatch(1);
         
-        WebSocketEventHandler verifierHandler = WebSockets.getEventHandler(ctx.getWebSocket(Thrift));
+        WebSocketEventHandler verifierHandler = getComponent().getWebSocketEventHandler(Thrift);
         EventSubscriber<WebSocketEvent> verifierSubscriber = verifierHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
                     PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
                     log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
@@ -1129,7 +1047,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                     }
                 });
         
-        WebSocketEventHandler proverHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        WebSocketEventHandler proverHandler = getComponent().getWebSocketEventHandler(Alice);
         EventSubscriber<WebSocketEvent> proverSubscriber = proverHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
                     PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
                     log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
@@ -1264,7 +1182,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         proverSubscriber.cancelSubscription();
     }
 
-    void kycProcessWithThrift(WalkthroughContext ctx) throws Exception {
+    void kycProcessWithThrift(AttachmentContext ctx) throws Exception {
 
         logSection("Alice goes through the KYC process with Thrift");
         
@@ -1277,7 +1195,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         CountDownLatch verifierVerified = new CountDownLatch(1);
         CountDownLatch proverPresentationAcked = new CountDownLatch(1);
         
-        WebSocketEventHandler verifierHandler = WebSockets.getEventHandler(ctx.getWebSocket(Thrift));
+        WebSocketEventHandler verifierHandler = getComponent().getWebSocketEventHandler(Thrift);
         EventSubscriber<WebSocketEvent> verifierSubscriber = verifierHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
                     PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
                     log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
@@ -1291,7 +1209,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
                     }
                 });
         
-        WebSocketEventHandler proverHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        WebSocketEventHandler proverHandler = getComponent().getWebSocketEventHandler(Alice);
         EventSubscriber<WebSocketEvent> proverSubscriber = proverHandler.subscribe(PresentationExchangeRecord.class, ev -> { 
                     PresentationExchangeRecord pex = ev.getPayload(PresentationExchangeRecord.class);
                     log.info("{}: [@{}] {} {} {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), pex.getRole(), pex.getState(), pex); 
@@ -1411,19 +1329,19 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         proverSubscriber.cancelSubscription();
     }
 
-    void acmeRevokesTheJobCertificate(WalkthroughContext ctx) throws Exception {
+    void acmeRevokesTheJobCertificate(AttachmentContext ctx) throws Exception {
         
         logSection("Acme revokes the Job-Certificate Credential");
 
         String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
 
-        WalletRecord issuerWallet = getComponent().getWalletByName(Acme);
+        WalletRecord issuerWallet = getComponent().getWallet(Acme);
         String issuerWalletId = issuerWallet.getWalletId();
 
         CountDownLatch revocationEventLatch = new CountDownLatch(1);
         CountDownLatch credentialRevokedLatch = new CountDownLatch(1);
         
-        WebSocketEventHandler issuerHandler = WebSockets.getEventHandler(ctx.getWebSocket(Acme));
+        WebSocketEventHandler issuerHandler = getComponent().getWebSocketEventHandler(Acme);
         EventSubscriber<WebSocketEvent> issuerSubscriber = issuerHandler.subscribe(RevocationEvent.class, ev -> { 
                     RevocationEvent revoc = ev.getPayload(RevocationEvent.class);
                     log.info("{}: [@{}] {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), revoc.getState(), revoc); 
@@ -1433,7 +1351,7 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         });
         
         // [TODO] Holder listens to an Issuer event
-        WebSocketEventHandler holderHandler = WebSockets.getEventHandler(ctx.getWebSocket(Alice));
+        WebSocketEventHandler holderHandler = getComponent().getWebSocketEventHandler(Alice);
         EventSubscriber<WebSocketEvent> holderSubscriber = holderHandler.subscribeFromOther(issuerWalletId, V1CredentialExchange.class, ev -> { 
                     V1CredentialExchange cex = ev.getPayload(V1CredentialExchange.class);
                     log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex); 
@@ -1473,12 +1391,5 @@ public class GettingStartedCamelTest extends AbstractHyperledgerAriesTest {
         
         holderSubscriber.cancelSubscription();
         issuerSubscriber.cancelSubscription();
-    }
-
-    private void closeWebSockets(WalkthroughContext ctx) throws Exception {
-        logSection("Close WebSockets");
-        for (String name : Arrays.asList(Government, Faber, Acme, Thrift, Alice)) {
-            WebSockets.closeWebSocket(ctx.getWebSocket(name));
-        }
     }
 }

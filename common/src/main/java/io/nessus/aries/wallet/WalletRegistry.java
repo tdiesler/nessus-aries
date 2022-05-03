@@ -6,18 +6,23 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.hyperledger.aries.api.multitenancy.WalletRecord;
+import java.util.stream.Collectors;
 
 public class WalletRegistry {
     
-    private final Map<String, WalletRecord> walletsCache = Collections.synchronizedMap(new LinkedHashMap<>());
+    private final Map<String, NessusWallet> walletsCache = Collections.synchronizedMap(new LinkedHashMap<>());
 
-    public WalletRegistry(WalletRecord... wallets) {
+    public WalletRegistry(NessusWallet... wallets) {
         Arrays.asList(wallets).forEach(w -> putWallet(w));
     }
 
-    public void putWallet(WalletRecord wallet) {
+    public List<String> getWalletNames() {
+        return walletsCache.values().stream()
+                .map(w -> w.getSettings().getWalletName())
+                .collect(Collectors.toList());
+    }
+    
+    public void putWallet(NessusWallet wallet) {
         walletsCache.put(wallet.getWalletId(), wallet);
     }
     
@@ -25,22 +30,20 @@ public class WalletRegistry {
         walletsCache.remove(walletId);
     }
 
-    public List<WalletRecord> getWallets() {
-        List<WalletRecord> wallets = new ArrayList<>(walletsCache.values());
-        Collections.reverse(wallets);
-        return wallets;
+    public List<NessusWallet> getWallets() {
+        return new ArrayList<>(walletsCache.values());
     }
     
-    public WalletRecord getWallet(String walletId) {
+    public NessusWallet getWallet(String walletId) {
         return walletsCache.get(walletId);
     }
 
     public String getWalletName(String walletId) {
-        WalletRecord wallet = walletsCache.get(walletId);
+        NessusWallet wallet = walletsCache.get(walletId);
         return wallet != null ? wallet.getSettings().getWalletName() : null;
     }
 
-    public WalletRecord getWalletByName(String walletName) {
+    public NessusWallet getWalletByName(String walletName) {
         return walletsCache.values().stream()
                 .filter(w -> w.getSettings().getWalletName().equalsIgnoreCase(walletName))
                 .findAny().orElse(null);

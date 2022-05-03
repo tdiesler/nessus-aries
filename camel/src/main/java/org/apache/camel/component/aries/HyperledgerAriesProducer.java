@@ -79,9 +79,9 @@ public class HyperledgerAriesProducer extends DefaultProducer {
         }
         else throw new UnsupportedServiceException(service);
         
-        log.debug("{}: service={} req={}", getWalletName(), service, exchange.getIn().getBody());
+        serviceHandler.beforeProcess(exchange, service);
         serviceHandler.process(exchange, service);
-        log.debug("{}: service={} res={}", getWalletName(), service, exchange.getIn().getBody());
+        serviceHandler.afterProcess(exchange, service);
     }
 
     protected String getWalletName() {

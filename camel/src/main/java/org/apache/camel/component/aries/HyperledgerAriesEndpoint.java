@@ -26,11 +26,11 @@ import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.support.DefaultEndpoint;
 import org.hyperledger.aries.AriesClient;
-import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.nessus.aries.util.AssertState;
+import io.nessus.aries.wallet.NessusWallet;
 
 /**
  * Access market data and trade on Bitcoin and Altcoin exchanges.
@@ -71,13 +71,13 @@ public class HyperledgerAriesEndpoint extends DefaultEndpoint {
         return getConfiguration().getWallet();
     }
     
-    public WalletRecord getWalletRecord() {
-        return getComponent().getWalletByName(getWalletName());
+    public NessusWallet getWallet() {
+        return getComponent().getWallet(getWalletName());
     }
     
     public AriesClient createClient() throws IOException {
-        WalletRecord walletRecord = getWalletRecord();
-        AssertState.notNull(walletRecord, "No WalletRecord for: " + getWalletRecord());
+        NessusWallet walletRecord = getWallet();
+        AssertState.notNull(walletRecord, "No WalletRecord for: " + getWallet());
         return getComponent().createClient(walletRecord);
     }
 }

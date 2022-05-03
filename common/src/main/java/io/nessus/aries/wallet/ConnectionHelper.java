@@ -12,17 +12,14 @@ import org.hyperledger.aries.api.connection.ConnectionTheirRole;
 import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.hyperledger.aries.api.connection.CreateInvitationResponse;
 import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
-import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.nessus.aries.AriesClientFactory;
-import io.nessus.aries.coms.WebSocketEventHandler;
+import io.nessus.aries.coms.EventSubscriber;
 import io.nessus.aries.coms.WebSocketEventHandler.WebSocketEvent;
-import io.nessus.aries.coms.WebSockets;
 import io.nessus.aries.util.AssertState;
 import io.nessus.aries.util.SafeConsumer;
-import okhttp3.WebSocket;
 
 /**
  * RFC 0160: Connection Protocol with multitenant wallets
@@ -52,7 +49,7 @@ public class ConnectionHelper {
         }
     }
     
-    public static ConnectionResult connectPeers(WalletRecord inviterWallet, WalletRecord inviteeWallet) throws Exception {
+    public static ConnectionResult connectPeers(NessusWallet inviterWallet, NessusWallet inviteeWallet) throws Exception {
         
         ConnectionResult connectionResult = new ConnectionResult();
         CountDownLatch peerConnectionLatch = new CountDownLatch(2);
@@ -71,15 +68,11 @@ public class ConnectionHelper {
             }
         };
         
-        WebSocket inviterSocket = WebSockets.createWebSocket(inviterWallet, new WebSocketEventHandler.Builder()
-                .walletRegistry(new WalletRegistry(inviterWallet, inviteeWallet))
-                .subscribe(ConnectionRecord.class, eventConsumer)
-                .build());
+        EventSubscriber<WebSocketEvent> inviterSubscriber = inviterWallet.getWebSocketEventHandler()
+                .subscribe(ConnectionRecord.class, eventConsumer);
         
-        WebSocket inviteeSocket = WebSockets.createWebSocket(inviteeWallet, new WebSocketEventHandler.Builder()
-                .walletRegistry(new WalletRegistry(inviterWallet, inviteeWallet))
-                .subscribe(ConnectionRecord.class, eventConsumer)
-                .build());
+        EventSubscriber<WebSocketEvent> inviteeSubscriber = inviteeWallet.getWebSocketEventHandler()
+                .subscribe(ConnectionRecord.class, eventConsumer);
         
         AriesClient inviter = AriesClientFactory.createClient(inviterWallet);
         AriesClient invitee = AriesClientFactory.createClient(inviteeWallet);
@@ -98,8 +91,8 @@ public class ConnectionHelper {
 
         AssertState.isTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
         
-        WebSockets.closeWebSocket(inviterSocket);
-        WebSockets.closeWebSocket(inviteeSocket);
+        inviterSubscriber.cancelSubscription();
+        inviteeSubscriber.cancelSubscription();
         
         return connectionResult;
     }

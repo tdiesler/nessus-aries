@@ -16,9 +16,9 @@ import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.ledger.IndyLedgerRoles;
 import org.hyperledger.aries.api.ledger.RegisterNymFilter;
 import org.hyperledger.aries.api.multitenancy.CreateWalletRequest;
-import org.hyperledger.aries.api.multitenancy.WalletRecord;
 
 import io.nessus.aries.util.AssertState;
+import io.nessus.aries.wallet.NessusWallet;
 
 public class MultitenancyServiceHandler extends AbstractServiceHandler {
     
@@ -36,7 +36,8 @@ public class MultitenancyServiceHandler extends AbstractServiceHandler {
             IndyLedgerRoles ledgerRole = getHeader(exchange, HEADER_MULTITENANCY_LEDGER_ROLE, IndyLedgerRoles.class);
             String trusteeName = getHeader(exchange, HEADER_MULTITENANCY_TRUSTEE_WALLET, String.class);
             
-            WalletRecord walletRecord = baseClient().multitenancyWalletCreate(walletRequest).get();
+            NessusWallet walletRecord = NessusWallet.build(baseClient().multitenancyWalletCreate(walletRequest).get());
+            
             String walletId = walletRecord.getWalletId();
             log.info("{}: [{}] {}", walletName, walletId, walletRecord);
 
@@ -53,7 +54,7 @@ public class MultitenancyServiceHandler extends AbstractServiceHandler {
                 
                 if (trusteeName != null) {
                     
-                    WalletRecord trusteeWallet = getComponent().getWalletByName(trusteeName);
+                    NessusWallet trusteeWallet = getComponent().getWallet(trusteeName);
                     AssertState.notNull(trusteeWallet, "Cannot obtain trustee wallet: " + trusteeName);
                     
                     AriesClient trustee = createClient(trusteeWallet);
