@@ -1,5 +1,6 @@
 package org.apache.camel.component.aries.handler;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -9,6 +10,8 @@ import org.apache.camel.component.aries.UnsupportedServiceException;
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionRequest;
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
+import org.hyperledger.aries.api.schema.SchemaSendRequest;
+import org.hyperledger.aries.api.schema.SchemaSendResponse;
 import org.hyperledger.aries.api.schema.SchemasCreatedFilter;
 
 import io.nessus.aries.util.AssertState;
@@ -34,15 +37,36 @@ public class CredentialDefinitionsServiceHandler extends AbstractServiceHandler 
                 if (schemaVersion == null)
                     schemaVersion = endpoint.getConfiguration().getSchemaVersion();
                 AssertState.notNull(schemaVersion, "Cannot obtain schemaVersion");
-                Boolean supportRevocation = Boolean.valueOf(spec.get("supportRevocation"));
                 
+                boolean autoSchema = endpoint.getConfiguration().isAutoSchema();
+                if (spec.get("autoSchema") != null)
+                    autoSchema = Boolean.valueOf(spec.get("autoSchema"));
+                
+                // Search existing schemas
                 DID publicDid = createClient().walletDidPublic().get();
-                List<String> schemaIds = createClient().schemasCreated(SchemasCreatedFilter.builder()
+                SchemasCreatedFilter filter = SchemasCreatedFilter.builder()
                         .schemaIssuerDid(publicDid.getDid())
                         .schemaName(schemaName)
                         .schemaVersion(schemaVersion)
-                        .build()).get();
-                AssertState.isEqual(1, schemaIds.size(), "Unexpected number of schema ids: " + schemaIds);
+                        .build();
+                List<String> schemaIds = createClient().schemasCreated(filter).get();
+                
+                // Create schema on-demand
+                if (schemaIds.isEmpty() && autoSchema) {
+                    String[] attributes = spec.get("attributes").split(",\\s*");
+                    SchemaSendRequest schemaReq = SchemaSendRequest.builder()
+                            .schemaName(schemaName)
+                            .schemaVersion(schemaVersion)
+                            .attributes(Arrays.asList(attributes))
+                            .build();
+                    SchemaSendResponse schemaRes = createClient().schemas(schemaReq).get();
+                    schemaIds = Arrays.asList(schemaRes.getSchemaId());
+                    log.info("Created Schema: {}", schemaRes);
+                }
+                AssertState.isFalse(schemaIds.isEmpty(), "Cannot obtain schema ids for: " + filter);
+                AssertState.isEqual(1, schemaIds.size(), "Unexpected number of schema ids for: " + filter);
+                
+                boolean supportRevocation = Boolean.valueOf(spec.get("supportRevocation"));
                 credDefReq = CredentialDefinitionRequest.builder()
                         .supportRevocation(supportRevocation)
                         .schemaId(schemaIds.get(0))

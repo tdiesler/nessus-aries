@@ -52,8 +52,8 @@ public class DidExchangeTest extends AbstractAriesTest {
             Assertions.assertTrue(peerConnectionLatch.await(10, TimeUnit.SECONDS), "NO ACTIVE connections");
             
         } finally {
-            faberWallet.close();
-            aliceWallet.close();
+            faberWallet.closeAndRemove();
+            aliceWallet.closeAndRemove();
         }
     }
 }

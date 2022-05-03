@@ -53,8 +53,8 @@ public class OutOfBandTest extends AbstractAriesTest {
             //assertConnectionState(faberWallet, ConnectionState.INVITATION);
             
         } finally {
-            aliceWallet.close();
-            faberWallet.close();
+            aliceWallet.closeAndRemove();
+            faberWallet.closeAndRemove();
         }
     }
 

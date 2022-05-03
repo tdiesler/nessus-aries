@@ -36,6 +36,9 @@ public class HyperledgerAriesConfiguration {
     @UriParam(description = "A schema version")
     @Metadata(required = false)
     private String schemaVersion;
+    @UriParam(description = "Allow on-demand schema creation")
+    @Metadata(required = false)
+    private boolean autoSchema;
 
     public String getWallet() {
         return wallet;
@@ -67,5 +70,13 @@ public class HyperledgerAriesConfiguration {
 
     public void setSchemaVersion(String schemaVersion) {
         this.schemaVersion = schemaVersion;
+    }
+
+    public boolean isAutoSchema() {
+        return autoSchema;
+    }
+
+    public void setAutoSchema(boolean autoSchema) {
+        this.autoSchema = autoSchema;
     }
 }

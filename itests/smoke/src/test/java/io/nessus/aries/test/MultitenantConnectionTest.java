@@ -59,8 +59,8 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
             Assertions.assertEquals(ConnectionState.ACTIVE, aliceConnections.get(0).getState());
             
         } finally {
-            inviterWallet.close();
-            inviteeWallet.close();
+            inviterWallet.closeAndRemove();
+            inviteeWallet.closeAndRemove();
         }
     }
 }

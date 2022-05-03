@@ -21,6 +21,8 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
     public boolean configure(CamelContext camelContext, Object obj, String name, Object value, boolean ignoreCase) {
         HyperledgerAriesEndpoint target = (HyperledgerAriesEndpoint) obj;
         switch (ignoreCase ? name.toLowerCase() : name) {
+        case "autoschema":
+        case "autoSchema": target.getConfiguration().setAutoSchema(property(camelContext, boolean.class, value)); return true;
         case "lazystartproducer":
         case "lazyStartProducer": target.setLazyStartProducer(property(camelContext, boolean.class, value)); return true;
         case "schemaname":
@@ -35,6 +37,8 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
     @Override
     public Class<?> getOptionType(String name, boolean ignoreCase) {
         switch (ignoreCase ? name.toLowerCase() : name) {
+        case "autoschema":
+        case "autoSchema": return boolean.class;
         case "lazystartproducer":
         case "lazyStartProducer": return boolean.class;
         case "schemaname":
@@ -50,6 +54,8 @@ public class HyperledgerAriesEndpointConfigurer extends PropertyConfigurerSuppor
     public Object getOptionValue(Object obj, String name, boolean ignoreCase) {
         HyperledgerAriesEndpoint target = (HyperledgerAriesEndpoint) obj;
         switch (ignoreCase ? name.toLowerCase() : name) {
+        case "autoschema":
+        case "autoSchema": return target.getConfiguration().isAutoSchema();
         case "lazystartproducer":
         case "lazyStartProducer": return target.isLazyStartProducer();
         case "schemaname":

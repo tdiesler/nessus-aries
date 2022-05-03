@@ -20,11 +20,15 @@ public class OnboardFaberTest extends AbstractAriesTest {
 
         // Create initial TRUSTEE Wallet
         NessusWallet governmentWallet = new WalletBuilder("Government")
-                .ledgerRole(TRUSTEE).selfRegisterNym().build();
+                .ledgerRole(TRUSTEE)
+                .selfRegisterNym()
+                .build();
 
         // Onboard an ENDORSER wallet
         NessusWallet faberWallet = new WalletBuilder("Faber")
-                .trusteeWallet(governmentWallet).ledgerRole(ENDORSER).build();
+                .trusteeWallet(governmentWallet)
+                .ledgerRole(ENDORSER)
+                .build();
         
         try {
             AriesClient faber = createClient(faberWallet);
@@ -33,8 +37,8 @@ public class OnboardFaberTest extends AbstractAriesTest {
             log.info("Faber: Public {}", did);
 
         } finally {
-            governmentWallet.close();
-            faberWallet.close();
+            faberWallet.closeAndRemove();
+            governmentWallet.closeAndRemove();
         }
     }
 }
