@@ -1,4 +1,4 @@
-package org.apache.camel.component.aries.utils;
+package org.apache.camel.component.aries.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

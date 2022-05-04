@@ -87,7 +87,8 @@ public class NessusWallet extends WalletRecord implements Closeable {
 
     public void closeAndRemove() throws IOException {
         
-        log.info("Close Wallet: {}", getWalletName());
+        log.info("Remove Wallet: {}", getWalletName());
+        
         close();
         
         AriesClient baseClient = AriesClientFactory.baseClient();

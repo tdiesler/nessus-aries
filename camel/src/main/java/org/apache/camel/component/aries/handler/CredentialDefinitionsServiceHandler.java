@@ -26,7 +26,7 @@ public class CredentialDefinitionsServiceHandler extends AbstractServiceHandler 
     @Override
     public void process(Exchange exchange, String service) throws Exception {
         if (service.equals("/credential-definitions")) {
-            CredentialDefinitionRequest credDefReq = getBody(exchange, CredentialDefinitionRequest.class);
+            CredentialDefinitionRequest credDefReq = getBodyOptional(exchange, CredentialDefinitionRequest.class);
             if (credDefReq == null) {
                 Map<String, String> spec = assertBody(exchange, Map.class);
                 String schemaName = spec.get("schemaName");

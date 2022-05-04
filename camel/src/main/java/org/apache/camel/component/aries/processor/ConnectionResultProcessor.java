@@ -1,9 +1,12 @@
-package org.apache.camel.component.aries.connection;
+package org.apache.camel.component.aries.processor;
+
+import static org.apache.camel.component.aries.processor.ConnectionEventProcessor.getEventConsumer;
 
 import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
+import org.apache.camel.component.aries.processor.ConnectionEventProcessor.ConnectionEventConsumer;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 
 import io.nessus.aries.util.AssertState;
@@ -20,11 +23,14 @@ public class ConnectionResultProcessor implements Processor {
     
     @Override
     public void process(Exchange exchange) throws Exception {
-        ConnectionEventConsumer inviterConsumer = ConnectionEventConsumer.getEventConsumer(exchange, inviterName);
-        ConnectionEventConsumer inviteeConsumer = ConnectionEventConsumer.getEventConsumer(exchange, inviteeName);
+        ConnectionEventConsumer inviterConsumer = getEventConsumer(exchange, inviterName);
+        ConnectionEventConsumer inviteeConsumer = getEventConsumer(exchange, inviteeName);
         AssertState.isTrue(inviterConsumer.await(10, TimeUnit.SECONDS), "No ACTIVE Connection event for: " + inviterName);
         AssertState.isTrue(inviteeConsumer.await(10, TimeUnit.SECONDS), "No ACTIVE Connection event for: " + inviteeName);
-        exchange.getIn().setBody(new ConnectionResult(inviterConsumer.getPayload(), inviteeConsumer.getPayload()));
+        ConnectionResult connectionResult = new ConnectionResult(inviterConsumer.getPayload(), inviteeConsumer.getPayload());
+        exchange.getIn().setHeader(inviterName + inviteeName + "ConnectionRecord", connectionResult.inviterConnection);
+        exchange.getIn().setHeader(inviteeName + inviterName + "ConnectionRecord", connectionResult.inviteeConnection);
+        exchange.getIn().setBody(connectionResult);
     }
 
     public static class ConnectionResult {

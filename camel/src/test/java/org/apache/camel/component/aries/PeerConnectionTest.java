@@ -2,11 +2,12 @@ package org.apache.camel.component.aries;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
+import java.util.Map;
+
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.component.aries.connection.ConnectionEventProcessor;
-import org.apache.camel.component.aries.connection.ConnectionResultProcessor;
-import org.apache.camel.component.aries.connection.ConnectionResultProcessor.ConnectionResult;
-import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
+import org.apache.camel.component.aries.processor.ConnectionEventProcessor;
+import org.apache.camel.component.aries.processor.ConnectionResultProcessor;
+import org.apache.camel.component.aries.processor.ConnectionResultProcessor.ConnectionResult;
 import org.hyperledger.aries.api.connection.ConnectionState;
 import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.junit.jupiter.api.Assertions;
@@ -33,8 +34,7 @@ public class PeerConnectionTest extends AbstractHyperledgerAriesTest {
                     
                     // Set an additional message header for Inivitation auto accept
                     // We could also have done this when initiating the route
-                    .setHeader(ConnectionReceiveInvitationFilter.class.getSimpleName(), () ->
-                            ConnectionReceiveInvitationFilter.builder().autoAccept(true).build())
+                    .setHeader("ConnectionReceiveInvitationFilter", () -> Map.of("auto_accept", true))
                     
                     // Setup WebSocket event handling for the Inviter/Invitee
                     .process(new ConnectionEventProcessor(Faber))

@@ -21,7 +21,7 @@ public class SchemasServiceHandler extends AbstractServiceHandler {
     @SuppressWarnings("unchecked")
     public void process(Exchange exchange, String service) throws Exception {
         if (service.equals("/schemas")) {
-            SchemaSendRequest schemaReq = getBody(exchange, SchemaSendRequest.class);
+            SchemaSendRequest schemaReq = getBodyOptional(exchange, SchemaSendRequest.class);
             if (schemaReq == null) {
                 Map<String, String> spec = assertBody(exchange, Map.class);
                 String schemaName = spec.get("schemaName");

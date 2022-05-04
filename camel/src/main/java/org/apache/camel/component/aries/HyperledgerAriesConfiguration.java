@@ -39,6 +39,9 @@ public class HyperledgerAriesConfiguration {
     @UriParam(description = "Allow on-demand schema creation")
     @Metadata(required = false)
     private boolean autoSchema;
+    @UriParam(description = "Allow credential auto issue")
+    @Metadata(required = false)
+    private boolean autoIssue;
 
     public String getWallet() {
         return wallet;
@@ -78,5 +81,13 @@ public class HyperledgerAriesConfiguration {
 
     public void setAutoSchema(boolean autoSchema) {
         this.autoSchema = autoSchema;
+    }
+
+    public boolean isAutoIssue() {
+        return autoIssue;
+    }
+
+    public void setAutoIssue(boolean autoIssue) {
+        this.autoIssue = autoIssue;
     }
 }

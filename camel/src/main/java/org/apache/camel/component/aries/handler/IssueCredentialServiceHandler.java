@@ -36,12 +36,12 @@ public class IssueCredentialServiceHandler extends AbstractServiceHandler {
                 exchange.getIn().setBody(resObj);
             }
             else if (service.endsWith("/issue")) {
-                V1CredentialIssueRequest reqObj = assertBody(exchange, V1CredentialIssueRequest.class);
+                V1CredentialIssueRequest reqObj = getBodyOptional(exchange, V1CredentialIssueRequest.class);
                 V1CredentialExchange resObj = createClient().issueCredentialRecordsIssue(credentialExchangeId, reqObj).get();
                 exchange.getIn().setBody(resObj);
             }
             else if (service.endsWith("/store")) {
-                V1CredentialStoreRequest reqObj = assertBody(exchange, V1CredentialStoreRequest.class);
+                V1CredentialStoreRequest reqObj = getBodyOptional(exchange, V1CredentialStoreRequest.class);
                 V1CredentialExchange resObj = createClient().issueCredentialRecordsStore(credentialExchangeId, reqObj).get();
                 exchange.getIn().setBody(resObj);
             }

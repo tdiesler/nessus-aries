@@ -1,4 +1,4 @@
-package org.apache.camel.component.aries.utils;
+package org.apache.camel.component.aries.processor;
 
 import static org.apache.camel.component.aries.Constants.HEADER_NESSUS_WALLET;
 import static org.apache.camel.component.aries.Constants.HEADER_WALLET_NAME;

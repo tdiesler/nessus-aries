@@ -48,10 +48,10 @@ public abstract class AbstractServiceHandler implements ServiceHandler {
     }
     
     public <T> boolean hasBody(Exchange exchange, Class<T> type) {
-        return getBody(exchange, type) != null;
+        return getBodyOptional(exchange, type) != null;
     }
 
-    public <T> T getBody(Exchange exchange, Class<T> type) {
+    public <T> T getBodyOptional(Exchange exchange, Class<T> type) {
         return exchange.getIn().getBody(type);
     }
 
@@ -65,25 +65,25 @@ public abstract class AbstractServiceHandler implements ServiceHandler {
         return exchange.getIn().getHeader(key) != null;
     }
     
-    public <T> T getHeader(Exchange exchange, Class<T> type) {
-        T value = getHeader(exchange, type.getSimpleName(), type);
+    public <T> T getHeaderOptional(Exchange exchange, Class<T> type) {
+        T value = getHeaderOptional(exchange, type.getSimpleName(), type);
         if (value == null) 
-            value = getHeader(exchange, type.getName(), type);
+            value = getHeaderOptional(exchange, type.getName(), type);
         return value;
     }
     
+    public <T> T getHeaderOptional(Exchange exchange, String key, Class<T> type) {
+        return exchange.getIn().getHeader(key, type);
+    }
+    
     public <T> T assertHeader(Exchange exchange, Class<T> type) {
-        T value = getHeader(exchange, type);
+        T value = getHeaderOptional(exchange, type);
         AssertState.notNull(value, "Cannot obtain header of type: " + type.getName());
         return value;
     }
 
-    public <T> T getHeader(Exchange exchange, String key, Class<T> type) {
-        return exchange.getIn().getHeader(key, type);
-    }
-    
     public <T> T assertHeader(Exchange exchange, String key, Class<T> type) {
-        T value = getHeader(exchange, key, type);
+        T value = getHeaderOptional(exchange, key, type);
         AssertState.notNull(value, "Cannot obtain header '" + key + "' of type: " + type.getName());
         return value;
     }

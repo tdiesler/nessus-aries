@@ -19,12 +19,14 @@ public class ConnectionsServiceHandler extends AbstractServiceHandler {
     @Override
     public void process(Exchange exchange, String service) throws Exception {
         if (service.equals("/connections/create-invitation")) {
-            CreateInvitationRequest reqObj = assertBody(exchange, CreateInvitationRequest.class);
+            CreateInvitationRequest reqObj = getBodyOptional(exchange, CreateInvitationRequest.class);
+            if (reqObj == null)
+                reqObj = CreateInvitationRequest.builder().build();
             CreateInvitationResponse resObj = createClient().connectionsCreateInvitation(reqObj).get();
             exchange.getIn().setBody(resObj);
         }
         else if (service.equals("/connections/receive-invitation")) {
-            ReceiveInvitationRequest reqObj = getBody(exchange, ReceiveInvitationRequest.class);
+            ReceiveInvitationRequest reqObj = getBodyOptional(exchange, ReceiveInvitationRequest.class);
             if (reqObj == null) {
                 ConnectionInvitation invitation = assertBody(exchange, ConnectionInvitation.class);
                 reqObj = ReceiveInvitationRequest.builder()
@@ -32,7 +34,7 @@ public class ConnectionsServiceHandler extends AbstractServiceHandler {
                         .serviceEndpoint(invitation.getServiceEndpoint())
                         .build();
             }
-            ConnectionReceiveInvitationFilter filter = getHeader(exchange, ConnectionReceiveInvitationFilter.class);
+            ConnectionReceiveInvitationFilter filter = getHeaderOptional(exchange, ConnectionReceiveInvitationFilter.class);
             ConnectionRecord resObj = createClient().connectionsReceiveInvitation(reqObj, filter).get();
             exchange.getIn().setBody(resObj);
         }

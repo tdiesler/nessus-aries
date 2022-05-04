@@ -32,9 +32,9 @@ public class MultitenancyServiceHandler extends AbstractServiceHandler {
             CreateWalletRequest walletRequest = assertBody(exchange, CreateWalletRequest.class);
             String walletName = walletRequest.getWalletName();
             
-            boolean selfRegister = getHeader(exchange, HEADER_MULTITENANCY_SELF_REGISTER_NYM, boolean.class);
-            IndyLedgerRoles ledgerRole = getHeader(exchange, HEADER_MULTITENANCY_LEDGER_ROLE, IndyLedgerRoles.class);
-            String trusteeName = getHeader(exchange, HEADER_MULTITENANCY_TRUSTEE_WALLET, String.class);
+            boolean selfRegister = getHeaderOptional(exchange, HEADER_MULTITENANCY_SELF_REGISTER_NYM, boolean.class);
+            IndyLedgerRoles ledgerRole = getHeaderOptional(exchange, HEADER_MULTITENANCY_LEDGER_ROLE, IndyLedgerRoles.class);
+            String trusteeName = getHeaderOptional(exchange, HEADER_MULTITENANCY_TRUSTEE_WALLET, String.class);
             
             NessusWallet walletRecord = NessusWallet.build(baseClient().multitenancyWalletCreate(walletRequest).get());
             
