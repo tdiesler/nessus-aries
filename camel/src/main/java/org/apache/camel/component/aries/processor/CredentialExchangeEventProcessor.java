@@ -43,48 +43,54 @@ public class CredentialExchangeEventProcessor implements Processor {
         return exchange.getIn().getHeader(getHeaderKey(role), CredentialExchangeEventConsumer.class);
     }
     
-    public static V1CredentialExchange getIssuerCredentialExchange(Exchange exchange) {
+    public static V1CredentialExchange getCredentialExchange(Exchange exchange, CredentialExchangeRole role) {
+        return getEventConsumer(exchange, role).getCredentialExchange();
+    }
+
+    public static void cancelSubscription(Exchange exchange, CredentialExchangeRole role) {
+        getEventConsumer(exchange, role).cancelSubscription();
+    }
+
+    public static void awaitIssuerOfferSent(Exchange exchange, long timeout, TimeUnit unit) throws InterruptedException {
         CredentialExchangeEventConsumer eventConsumer = getEventConsumer(exchange, ISSUER);
-        return eventConsumer.getIssuerCredentialExchange();
-    }
-
-    public static V1CredentialExchange getHolderCredentialExchange(Exchange exchange) {
-        CredentialExchangeEventConsumer eventConsumer = getEventConsumer(exchange, HOLDER);
-        return eventConsumer.getHolderCredentialExchange();
-    }
-
+        boolean result = eventConsumer.awaitIssuerOfferSent(timeout, unit);
+        AssertState.isTrue(result, "No ISSUER OFFER_SENT");
+        exchange.getIn().setHeader("IssuerCredentialExchange", eventConsumer.getCredentialExchange());
+    } 
+    
     public static void awaitHolderOfferReceived(Exchange exchange, long timeout, TimeUnit unit) throws InterruptedException {
         CredentialExchangeEventConsumer eventConsumer = getEventConsumer(exchange, HOLDER);
         boolean result = eventConsumer.awaitHolderOfferReceived(timeout, unit);
         AssertState.isTrue(result, "No HOLDER OFFER_RECEIVED");
-        exchange.getIn().setHeader("HolderCredentialExchange", eventConsumer.getHolderCredentialExchange());
+        exchange.getIn().setHeader("HolderCredentialExchange", eventConsumer.getCredentialExchange());
     } 
     
     public static void awaitIssuerRequestReceived(Exchange exchange, long timeout, TimeUnit unit) throws InterruptedException {
         CredentialExchangeEventConsumer eventConsumer = getEventConsumer(exchange, ISSUER);
         boolean result = eventConsumer.awaitIssuerRequestReceived(timeout, unit);
         AssertState.isTrue(result, "No ISSUER REQUEST_RECEIVED");
-        exchange.getIn().setHeader("IssuerCredentialExchange", eventConsumer.getIssuerCredentialExchange());
+        exchange.getIn().setHeader("IssuerCredentialExchange", eventConsumer.getCredentialExchange());
     } 
     
     public static void awaitHolderCredentialReceived(Exchange exchange, long timeout, TimeUnit unit) throws InterruptedException {
         CredentialExchangeEventConsumer eventConsumer = getEventConsumer(exchange, HOLDER);
         boolean result = eventConsumer.awaitHolderCredentialReceived(timeout, unit);
         AssertState.isTrue(result, "No HOLDER CREDENTIAL_RECEIVED");
-        exchange.getIn().setHeader("HolderCredentialExchange", eventConsumer.getHolderCredentialExchange());
+        exchange.getIn().setHeader("HolderCredentialExchange", eventConsumer.getCredentialExchange());
     } 
     
     public static void awaitHolderCredentialAcked(Exchange exchange, long timeout, TimeUnit unit) throws InterruptedException {
         CredentialExchangeEventConsumer eventConsumer = getEventConsumer(exchange, HOLDER);
         boolean result = eventConsumer.awaitHolderCredentialAcked(timeout, unit);
         AssertState.isTrue(result, "No HOLDER CREDENTIAL_ACKED");
-        exchange.getIn().setHeader("HolderCredentialExchange", eventConsumer.getHolderCredentialExchange());
+        exchange.getIn().setHeader("HolderCredentialExchange", eventConsumer.getCredentialExchange());
     } 
     
     class CredentialExchangeEventConsumer extends AbstractEventConsumer<V1CredentialExchange> {
 
         V1CredentialExchange[] issuerCredentialExchange = new V1CredentialExchange[1];
         V1CredentialExchange[] holderCredentialExchange = new V1CredentialExchange[1];
+        CountDownLatch issuerOfferSent = new CountDownLatch(1);
         CountDownLatch holderOfferReceived = new CountDownLatch(1);
         CountDownLatch issuerRequestReceived = new CountDownLatch(1);
         CountDownLatch holderCredentialReceived = new CountDownLatch(1);
@@ -94,14 +100,25 @@ public class CredentialExchangeEventProcessor implements Processor {
             super(V1CredentialExchange.class);
         }
 
-        public V1CredentialExchange getIssuerCredentialExchange() {
-            return issuerCredentialExchange[0];
+        public V1CredentialExchange getCredentialExchange() {
+            V1CredentialExchange result = null;
+            if (CredentialExchangeRole.ISSUER == role) {
+                result = issuerCredentialExchange[0];
+            } 
+            if (CredentialExchangeRole.HOLDER == role){
+                result = holderCredentialExchange[0];
+            }
+            return result;
         }
 
-        public V1CredentialExchange getHolderCredentialExchange() {
-            return holderCredentialExchange[0];
+        public void cancelSubscription() {
+            getSubscriber().cancelSubscription();
         }
 
+        public boolean awaitIssuerOfferSent(long timeout, TimeUnit unit) throws InterruptedException {
+            return issuerOfferSent.await(timeout, unit);
+        } 
+        
         public boolean awaitHolderOfferReceived(long timeout, TimeUnit unit) throws InterruptedException {
             return holderOfferReceived.await(timeout, unit);
         } 
@@ -123,23 +140,27 @@ public class CredentialExchangeEventProcessor implements Processor {
             super.accept(ev);
             V1CredentialExchange cex = getPayload();
             log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), cex.getRole(), cex.getState(), cex);
-            if (CredentialExchangeRole.ISSUER == role) {
-                if (CredentialExchangeRole.ISSUER == cex.getRole() && CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
+            if (CredentialExchangeRole.ISSUER == role && role == cex.getRole()) {
+                if (CredentialExchangeState.OFFER_SENT == cex.getState()) {
+                    issuerCredentialExchange[0] = cex;
+                    issuerOfferSent.countDown();
+                }
+                else if (CredentialExchangeState.REQUEST_RECEIVED == cex.getState()) {
                     getSubscriber().cancelSubscription();
                     issuerCredentialExchange[0] = cex;
                     issuerRequestReceived.countDown();
                 }
             }
-            if (CredentialExchangeRole.HOLDER == role) {
-                if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
+            if (CredentialExchangeRole.HOLDER == role && role == cex.getRole()) {
+                if (CredentialExchangeState.OFFER_RECEIVED == cex.getState()) {
                     holderCredentialExchange[0] = cex;
                     holderOfferReceived.countDown();
                 }
-                else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_RECEIVED == cex.getState()) {
+                else if (CredentialExchangeState.CREDENTIAL_RECEIVED == cex.getState()) {
                     holderCredentialExchange[0] = cex;
                     holderCredentialReceived.countDown();
                 }
-                else if (CredentialExchangeRole.HOLDER == cex.getRole() && CredentialExchangeState.CREDENTIAL_ACKED == cex.getState()) {
+                else if (CredentialExchangeState.CREDENTIAL_ACKED == cex.getState()) {
                     getSubscriber().cancelSubscription();
                     holderCredentialExchange[0] = cex;
                     holderCredentialAcked.countDown();

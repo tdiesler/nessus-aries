@@ -45,12 +45,12 @@ public class SchemaTest extends AbstractHyperledgerAriesTest {
         // Faber creates the Transcript Schema and sends it to the Ledger
         // It can do so with it's Endorser role
 
-        Map<String, String> schemaSpec = Map.of(
+        Map<String, String> reqBody = Map.of(
             "attributes", "first_name, last_name, ssn, degree, status, year, average",
             "schemaVersion", "1.2"
         );
         
-        String schemaId = template.requestBody("direct:transscript-schema", schemaSpec, String.class);
+        String schemaId = template.requestBody("direct:transscript-schema", reqBody, String.class);
         log.info("{}", schemaId);
         
         Assertions.assertTrue(schemaId.startsWith(publicDid.getDid()));

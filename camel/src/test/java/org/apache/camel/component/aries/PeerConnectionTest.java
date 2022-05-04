@@ -57,9 +57,9 @@ public class PeerConnectionTest extends AbstractHyperledgerAriesTest {
         onboardWallet(Faber, ENDORSER);
         onboardWallet(Alice);
         
-        CreateInvitationRequest createInvitation = CreateInvitationRequest.builder().build();
+        CreateInvitationRequest reqBody = CreateInvitationRequest.builder().build();
         
-        ConnectionResult resObj = template.requestBody("direct:faber-alice-connect", createInvitation, ConnectionResult.class);
+        ConnectionResult resObj = template.requestBody("direct:faber-alice-connect", reqBody, ConnectionResult.class);
         
         log.info("Inviter: [{}] {}", resObj.inviterConnection.getState(), resObj.inviterConnection);
         log.info("Invitee: [{}] {}", resObj.inviteeConnection.getState(), resObj.inviteeConnection);

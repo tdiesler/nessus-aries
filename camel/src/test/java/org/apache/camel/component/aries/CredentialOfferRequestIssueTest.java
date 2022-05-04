@@ -93,13 +93,13 @@ public class CredentialOfferRequestIssueTest extends AbstractHyperledgerAriesTes
         onboardWallet(Faber, ENDORSER);
         onboardWallet(Alice);
         
-        Map<String, Object> reqSpec = Map.of(
+        Map<String, Object> reqBody = Map.of(
                 "schemaVersion", "1.2",
                 "attributes", "first_name, last_name, ssn, degree, status, year, average",
                 "supportRevocation", "false"
             );
 
-        V1CredentialExchange resObj = template.requestBody("direct:transscript-credential-definition", reqSpec, V1CredentialExchange.class);
+        V1CredentialExchange resObj = template.requestBody("direct:transscript-credential-definition", reqBody, V1CredentialExchange.class);
         Assertions.assertEquals(HOLDER, resObj.getRole());
         Assertions.assertEquals(CREDENTIAL_ACKED, resObj.getState());
     }

@@ -40,13 +40,13 @@ public class CredentialDefinitionTest extends AbstractHyperledgerAriesTest {
         NessusWallet faberWallet = onboardWallet(Faber, ENDORSER);
         DID publicDid = faberWallet.getPublicDid();
         
-        Map<String, Object> reqSpec = Map.of(
+        Map<String, Object> reqBody = Map.of(
                 "schemaVersion", "1.2",
                 "attributes", "first_name, last_name, ssn, degree, status, year, average",
                 "supportRevocation", "false"
             );
 
-        String credDefId = template.requestBody("direct:transscript-credential-definition", reqSpec, String.class);
+        String credDefId = template.requestBody("direct:transscript-credential-definition", reqBody, String.class);
         Assertions.assertTrue(credDefId.startsWith(publicDid.getDid()));
     }
 }
