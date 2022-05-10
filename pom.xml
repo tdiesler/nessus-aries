@@ -47,10 +47,11 @@
     <properties>
 
         <!-- Camel versions -->
-        <version.apache.camel>3.16.0</version.apache.camel>
+        <version.apache.camel>3.17.0-SNAPSHOT</version.apache.camel>
         
         <!-- Other versions -->
 		<version.acapy.client>0.7.24-SNAPSHOT</version.acapy.client>   
+        <version.args4j>2.33</version.args4j>
         <version.slf4j>1.7.33</version.slf4j>
         <version.snakeyaml>1.30</version.snakeyaml>
         <version.log4j>2.17.1</version.log4j>
@@ -60,7 +61,9 @@
             Plugin versions
             mvn versions:display-plugin-updates 
         -->
-        <version-docker-maven-plugin>0.20.1</version-docker-maven-plugin>
+        <version-build-helper-plugin>3.3.0</version-build-helper-plugin>
+        <version-buildnumber-maven-plugin>1.4</version-buildnumber-maven-plugin>
+        <version-docker-maven-plugin>0.39.1</version-docker-maven-plugin>
         <version-maven-assembly-plugin>3.3.0</version-maven-assembly-plugin>
         <version-maven-clean-plugin>3.1.0</version-maven-clean-plugin>
         <version-maven-compiler-plugin>3.8.1</version-maven-compiler-plugin>
@@ -82,8 +85,8 @@
 
     <!-- Modules -->
     <modules>
-        <module>camel</module>
         <module>common</module>
+        <module>demo</module>
         <module>itests</module>
     </modules>
 
@@ -91,8 +94,13 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>args4j</groupId>
+                <artifactId>args4j</artifactId>
+                <version>${version.args4j}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.apache.camel</groupId>
-                <artifactId>camel-parent</artifactId>
+                <artifactId>camel-bom</artifactId>
                 <version>${version.apache.camel}</version>
                 <scope>import</scope>
                 <type>pom</type>
@@ -131,6 +139,11 @@
         <!-- Plugin Management -->
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>io.fabric8</groupId>
+                    <artifactId>docker-maven-plugin</artifactId>
+                    <version>${version-docker-maven-plugin}</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.camel</groupId>
                     <artifactId>camel-package-maven-plugin</artifactId>
@@ -198,6 +211,16 @@
                     <configuration>
                         <failIfNoTests>false</failIfNoTests>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>buildnumber-maven-plugin</artifactId>
+                    <version>${version-buildnumber-maven-plugin}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>${version-build-helper-plugin}</version>
                 </plugin>
             </plugins>
         </pluginManagement>

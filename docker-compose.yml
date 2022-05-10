@@ -136,13 +136,16 @@ services:
     networks:
       - von-network
     depends_on:
-      - nodes
+      - node1
+      - node2
+      - node3
+      - node4
       - webserver
       - tails-server
     command: >
       start
         --genesis-url http://${DOCKERHOST:-host.docker.internal}:9000/genesis
-        --endpoint http://${ACAPY_HOST:-localhost}:${ACAPY_USER_PORT:-8030}
+        --endpoint http://${ACAPY_HOSTNAME:-localhost}:${ACAPY_USER_PORT:-8030}
         --inbound-transport http 0.0.0.0 ${ACAPY_USER_PORT:-8030}
         --outbound-transport http
         --tails-server-base-url http://tails-server:6543

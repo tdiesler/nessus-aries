@@ -1,5 +1,7 @@
 package io.nessus.aries.wallet;
 
+import static io.nessus.aries.AgentConfiguration.getSystemEnv;
+
 import java.io.IOException;
 
 import org.hyperledger.acy_py.generated.model.DID;
@@ -83,7 +85,9 @@ public class WalletBuilder {
     }
     
     public static boolean selfRegisterWithDid(String alias, String did, String vkey, IndyLedgerRoles role) throws IOException {
-        return new SelfRegistrationHandler("http://localhost:9000/register")
+        String host = getSystemEnv("INDY_WEBSERVER_HOSTNAME", "localhost");
+        String port = getSystemEnv("INDY_WEBSERVER_PORT", "9000");
+        return new SelfRegistrationHandler(String.format("http://%s:%s/register", host, port))
             .registerWithDID(alias, did, vkey, role);
     }
 

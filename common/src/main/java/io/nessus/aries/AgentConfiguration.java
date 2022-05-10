@@ -3,6 +3,8 @@ package io.nessus.aries;
 import java.net.MalformedURLException;
 import java.net.URL;
 
+import io.nessus.aries.util.AssertState;
+
 public class AgentConfiguration {
     
     private final String agentAdminUrl;
@@ -17,11 +19,28 @@ public class AgentConfiguration {
     }
     
     public static AgentConfiguration defaultConfiguration() {
+        String host = getSystemEnv("ACAPY_HOSTNAME", "localhost");
+        String adminPort = getSystemEnv("ACAPY_ADMIN_PORT", "8031");
+        String userPort = getSystemEnv("ACAPY_USER_PORT", "8030");
+        String apiKey = getSystemEnv("ACAPY_API_KEY", "adminkey");
         return AgentConfiguration.builder()
-                .adminUrl("http://localhost:8031")
-                .userUrl("http://localhost:8030")
-                .apiKey("adminkey")
+                .adminUrl(String.format("http://%s:%s", host, adminPort))
+                .userUrl(String.format("http://%s:%s", host, userPort))
+                .apiKey(apiKey)
                 .build();
+    }
+    
+    public static String getSystemEnv(String key, String defaultValue) {
+        String value = System.getenv(key);
+        if (value == null || value.isBlank() || value.isEmpty())
+            value = defaultValue;
+        return value;
+    }
+    
+    public static String assertSystemEnv(String key) {
+        String value = System.getenv(key);
+        AssertState.isFalse(value == null || value.isEmpty() || value.isBlank(), "Invalid " + key);
+        return value;
     }
     
     public static AgentConfigurationBuilder builder() {
