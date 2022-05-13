@@ -98,13 +98,6 @@
                 <artifactId>args4j</artifactId>
                 <version>${version.args4j}</version>
             </dependency>
-            <dependency>
-                <groupId>org.apache.camel</groupId>
-                <artifactId>camel-bom</artifactId>
-                <version>${version.apache.camel}</version>
-                <scope>import</scope>
-                <type>pom</type>
-            </dependency>
 			<dependency>
 			   <groupId>network.idu.acapy</groupId>
 			   <artifactId>aries-client-python</artifactId>

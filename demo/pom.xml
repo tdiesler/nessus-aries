@@ -41,7 +41,24 @@
         <docker.image.version>latest</docker.image.version>
     </properties>
     
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.camel</groupId>
+                <artifactId>camel-bom</artifactId>
+                <version>${version.apache.camel}</version>
+                <scope>import</scope>
+                <type>pom</type>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    
 	<dependencies>
+        <dependency>
+            <groupId>io.nessus.aries</groupId>
+            <artifactId>nessus-aries-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>args4j</groupId>
             <artifactId>args4j</artifactId>

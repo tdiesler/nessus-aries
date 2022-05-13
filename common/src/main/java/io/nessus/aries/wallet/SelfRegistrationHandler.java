@@ -26,11 +26,9 @@ public class SelfRegistrationHandler {
     static final Gson gson = GsonConfig.defaultConfig();
 
     final String networkURL;
-    final OkHttpClient httpClient;
 
     public SelfRegistrationHandler(String url) {
         this.networkURL = url;
-        this.httpClient = HttpClientFactory.createHttpClient();
     }
 
     public boolean registerWithDID(String alias, String did, String verkey, IndyLedgerRoles role) throws IOException {
@@ -70,6 +68,7 @@ public class SelfRegistrationHandler {
 
     private String call(Request req) throws IOException {
         String result = null;
+        OkHttpClient httpClient = HttpClientFactory.createHttpClient();
         try (Response resp = httpClient.newCall(req).execute()) {
             if (resp.isSuccessful() && resp.body() != null) {
                 result = resp.body().string();

@@ -17,6 +17,7 @@ import io.nessus.aries.AriesClientFactory;
 import io.nessus.aries.util.AttachmentKey;
 import io.nessus.aries.util.AttachmentSupport;
 import io.nessus.aries.wallet.NessusWallet;
+import io.nessus.aries.wallet.WalletBuilder;
 import io.nessus.aries.wallet.WalletRegistry;
 import okhttp3.WebSocket;
 
@@ -37,6 +38,10 @@ public abstract class AbstractAriesTest {
         }
     }
     
+    public WalletBuilder createWallet(String walletName) {
+        return new WalletBuilder(walletName).walletRegistry(walletRegistry);
+    }
+
     /**
      * Create a client for a multitenant wallet
      */

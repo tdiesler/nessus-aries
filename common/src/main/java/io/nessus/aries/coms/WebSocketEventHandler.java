@@ -49,17 +49,17 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
     private final EventParser parser = new EventParser();
 
     private final WalletRegistry walletRegistry;
-    private final List<EventSubscriberSpec> subsspecs;
+    private final List<EventSubscriberSpec> subspecs;
     private WalletRecord thisWallet;
     
     private WebSocketEventHandler(WalletRegistry walletRegistry, List<EventSubscriberSpec> subsspecs) {
         this.walletRegistry = walletRegistry;
-        this.subsspecs = new ArrayList<>(subsspecs);
+        this.subspecs = new ArrayList<>(subsspecs);
     }
 
     void init(WalletRecord thisWallet) {
         this.thisWallet = thisWallet;
-        for (EventSubscriberSpec spec : subsspecs) {
+        for (EventSubscriberSpec spec : subspecs) {
             List<String> walletIds = spec.walletIds != null ? spec.walletIds : Arrays.asList(getThisWalletId());
             webSocketEventPublisher.subscribe(new FilteringEventSubscriber(walletIds, spec.eventTypes, spec.consumer));
         }
@@ -91,20 +91,14 @@ public class WebSocketEventHandler implements IEventHandler, Closeable {
     }
     
     public <T> EventSubscriber<WebSocketEvent> subscribe(Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
-        return subscribe(Arrays.asList(eventType), consumer);
+        Objects.requireNonNull(eventType);
+        Objects.requireNonNull(consumer);
+        return subscribeMultiple(Arrays.asList(eventType), consumer);
     }
     
-    public <T> EventSubscriber<WebSocketEvent> subscribe(List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
+    public <T> EventSubscriber<WebSocketEvent> subscribeMultiple(List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
         Objects.requireNonNull(consumer);
         FilteringEventSubscriber subscriber = new FilteringEventSubscriber(Arrays.asList(getThisWalletId()), eventTypes, consumer);
-        webSocketEventPublisher.subscribe(subscriber);
-        return subscriber;
-    }
-    
-    // [TODO] Is it really needed/possible to subscribe to events from other sub-wallets
-    public <T> EventSubscriber<WebSocketEvent> subscribeFromOther(String walletId, Class<T> eventType, SafeConsumer<WebSocketEvent> consumer) {
-        Objects.requireNonNull(consumer);
-        FilteringEventSubscriber subscriber = new FilteringEventSubscriber(Arrays.asList(walletId), Arrays.asList(eventType), consumer);
         webSocketEventPublisher.subscribe(subscriber);
         return subscriber;
     }

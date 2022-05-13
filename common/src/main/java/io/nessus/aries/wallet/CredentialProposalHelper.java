@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.hyperledger.aries.api.credentials.CredentialAttributes;
 import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange.CredentialProposalDict.CredentialProposal;
 
+// [TODO] Pull up to acapy-java-client
 public class CredentialProposalHelper {
     
     private final CredentialProposal credentialProposal;

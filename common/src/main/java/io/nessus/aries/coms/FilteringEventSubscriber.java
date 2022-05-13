@@ -13,8 +13,6 @@ public class FilteringEventSubscriber extends EventSubscriber<WebSocketEvent> {
     private final SafeConsumer<WebSocketEvent> consumer;
     
     public FilteringEventSubscriber(List<String> walletIds, List<Class<?>> eventTypes, SafeConsumer<WebSocketEvent> consumer) {
-        Objects.requireNonNull(walletIds);
-        Objects.requireNonNull(eventTypes);
         Objects.requireNonNull(consumer);
         this.walletIds = walletIds;
         this.eventTypes = eventTypes;
@@ -23,8 +21,8 @@ public class FilteringEventSubscriber extends EventSubscriber<WebSocketEvent> {
 
     @Override
     public void onNext(WebSocketEvent event) {
-        boolean walletMatch = walletIds.isEmpty() || walletIds.contains(event.getTheirWalletId());
-        boolean eventTypeMatch = eventTypes.isEmpty() || !eventTypes.stream().filter(et -> et.isAssignableFrom(event.getEventType())).findAny().isEmpty();
+        boolean walletMatch = walletIds == null || walletIds.contains(event.getTheirWalletId());
+        boolean eventTypeMatch = eventTypes == null || !eventTypes.stream().filter(et -> et.isAssignableFrom(event.getEventType())).findAny().isEmpty();
         if (walletMatch && eventTypeMatch) {
             try {
                 consumer.accept(event);

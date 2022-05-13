@@ -62,7 +62,7 @@ public class NessusWallet extends WalletRecord implements Closeable {
 
     public synchronized WebSocket getWebSocket() {
         if (webSocket == null) {
-            webSocket = WebSockets.createWebSocket_(this, new WebSocketEventHandler.Builder()
+            webSocket = WebSockets.createWebSocket(this, new WebSocketEventHandler.Builder()
                     .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
                     .walletRegistry(walletRegistry)
                     .build());
@@ -70,27 +70,29 @@ public class NessusWallet extends WalletRecord implements Closeable {
         return webSocket;
     }
 
-    public synchronized void closeWebSocket() {
-        WebSockets.closeWebSocket(webSocket);
-        webSocket = null;
-    }
-    
     public WebSocketEventHandler getWebSocketEventHandler() {
         return WebSockets.getEventHandler(getWebSocket());
     }
     
     @Override
     public void close() throws IOException {
+        closeWebSocket();
+    }
+
+    public synchronized void closeWebSocket() {
         WebSockets.closeWebSocket(webSocket);
         webSocket = null;
     }
-
+    
     public void closeAndRemove() throws IOException {
         
         log.info("Remove Wallet: {}", getWalletName());
         
-        close();
+        closeWebSocket();
         
+        if (walletRegistry != null)
+            walletRegistry.removeWallet(getWalletId());
+            
         AriesClient baseClient = AriesClientFactory.baseClient();
         baseClient.multitenancyWalletRemove(getWalletId(), RemoveWalletRequest.builder()
                 .walletKey(getToken())

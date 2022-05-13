@@ -1,5 +1,7 @@
 package io.nessus.aries.coms;
 
+import java.util.Objects;
+
 import org.hyperledger.aries.webhook.AriesWebSocketListener;
 
 public class WebSocketListener extends AriesWebSocketListener {
@@ -8,6 +10,7 @@ public class WebSocketListener extends AriesWebSocketListener {
     
     public WebSocketListener(String label, WebSocketEventHandler handler) {
         super(label, handler);
+        Objects.nonNull(handler);
         this.handler = handler;
     }
 
