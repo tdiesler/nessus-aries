@@ -1,11 +1,10 @@
 package io.nessus.aries.wallet;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.util.Arrays;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.AriesWebSocketClient;
 import org.hyperledger.aries.api.multitenancy.RemoveWalletRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.config.GsonConfig;
@@ -14,20 +13,18 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 
+import io.nessus.aries.AgentConfiguration;
 import io.nessus.aries.AriesClientFactory;
-import io.nessus.aries.coms.WebSocketEventHandler;
-import io.nessus.aries.coms.WebSockets;
-import okhttp3.WebSocket;
 
-public class NessusWallet extends WalletRecord implements Closeable {
+public class NessusWallet extends WalletRecord implements AutoCloseable {
 
     static final Logger log = LoggerFactory.getLogger(WalletRecord.class);
     
     static final Gson gson = GsonConfig.defaultConfig();
     
-    private WalletRegistry walletRegistry;
-    private WebSocket webSocket;
-    private DID publicDid;
+    private transient WalletRegistry walletRegistry;
+    private transient AriesWebSocketClient wsclient;
+    private transient DID publicDid;
     
     public static NessusWallet build(WalletRecord wr) {
         String json = gson.toJson(wr);
@@ -56,22 +53,21 @@ public class NessusWallet extends WalletRecord implements Closeable {
         return walletRegistry;
     }
 
-    public synchronized boolean hasWebSocket() {
-        return webSocket == null;
+    public AriesWebSocketClient getWebSocketClient() {
+        return getWebSocketClient(AgentConfiguration.defaultConfiguration());
     }
-
-    public synchronized WebSocket getWebSocket() {
-        if (webSocket == null) {
-            webSocket = WebSockets.createWebSocket(this, new WebSocketEventHandler.Builder()
-                    .subscribe(Arrays.asList(), ev -> log.debug("{}: [@{}] {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()))
-                    .walletRegistry(walletRegistry)
-                    .build());
+    
+    public AriesWebSocketClient getWebSocketClient(AgentConfiguration config) {
+        if (wsclient == null) {
+            wsclient =  AriesWebSocketClient.builder()
+                    .url(config.getWebSocketUrl())
+                    .apiKey(config.getApiKey())
+                    .bearerToken(getToken())
+                    .walletId(getWalletId())
+                    .handler(new DefaultEventHandler(this, walletRegistry)).build();
+            
         }
-        return webSocket;
-    }
-
-    public WebSocketEventHandler getWebSocketEventHandler() {
-        return WebSockets.getEventHandler(getWebSocket());
+        return wsclient;
     }
     
     @Override
@@ -80,8 +76,10 @@ public class NessusWallet extends WalletRecord implements Closeable {
     }
 
     public synchronized void closeWebSocket() {
-        WebSockets.closeWebSocket(webSocket);
-        webSocket = null;
+        if (wsclient != null) {
+            wsclient.close();
+            wsclient = null;
+        }
     }
     
     public void closeAndRemove() throws IOException {

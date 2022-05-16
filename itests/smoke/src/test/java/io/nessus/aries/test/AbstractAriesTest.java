@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 
+import io.nessus.aries.AgentConfiguration;
 import io.nessus.aries.AriesClientFactory;
 import io.nessus.aries.util.AttachmentKey;
 import io.nessus.aries.util.AttachmentSupport;
@@ -27,7 +28,9 @@ public abstract class AbstractAriesTest {
     
     public static final Gson gson = GsonConfig.defaultConfig();
     
+    public final AgentConfiguration agentConfig = AgentConfiguration.defaultConfiguration();
     public final WalletRegistry walletRegistry = new WalletRegistry();
+    
     private final AttachmentContext attcontext = new AttachmentContext();
     
     @AfterEach
@@ -46,7 +49,7 @@ public abstract class AbstractAriesTest {
      * Create a client for a multitenant wallet
      */
     public AriesClient createClient(WalletRecord wallet) throws IOException {
-        return AriesClientFactory.createClient(wallet);
+        return AriesClientFactory.createClient(wallet, agentConfig);
     }
 
     public WalletRegistry getWalletRegistry() {

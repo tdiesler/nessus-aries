@@ -4,12 +4,12 @@ import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.TRUSTEE;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -17,7 +17,9 @@ import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.acy_py.generated.model.IndyProofReqPredSpec.PTypeEnum;
 import org.hyperledger.acy_py.generated.model.IssuerRevRegRecord;
 import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.AriesWebSocketClient;
 import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
+import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.hyperledger.aries.api.connection.CreateInvitationResponse;
 import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
@@ -25,6 +27,7 @@ import org.hyperledger.aries.api.credential_definition.CredentialDefinition.Cred
 import org.hyperledger.aries.api.credential_definition.CredentialDefinition.CredentialDefinitionResponse;
 import org.hyperledger.aries.api.credentials.CredentialAttributes;
 import org.hyperledger.aries.api.credentials.CredentialPreview;
+import org.hyperledger.aries.api.issue_credential_v1.CredentialExchangeState;
 import org.hyperledger.aries.api.issue_credential_v1.IssueCredentialRecordsFilter;
 import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange;
 import org.hyperledger.aries.api.issue_credential_v1.V1CredentialExchange.CredentialProposalDict.CredentialProposal;
@@ -37,6 +40,7 @@ import org.hyperledger.aries.api.present_proof.PresentProofRequest.ProofRequest.
 import org.hyperledger.aries.api.present_proof.PresentProofRequest.ProofRequest.ProofRequestedAttributes;
 import org.hyperledger.aries.api.present_proof.PresentProofRequest.ProofRequest.ProofRequestedPredicates;
 import org.hyperledger.aries.api.present_proof.PresentationExchangeRecord;
+import org.hyperledger.aries.api.present_proof.PresentationExchangeState;
 import org.hyperledger.aries.api.present_proof.PresentationRequest;
 import org.hyperledger.aries.api.present_proof.PresentationRequest.IndyRequestedCredsRequestedAttr;
 import org.hyperledger.aries.api.present_proof.PresentationRequest.IndyRequestedCredsRequestedPred;
@@ -44,6 +48,7 @@ import org.hyperledger.aries.api.present_proof.PresentationRequestCredentials;
 import org.hyperledger.aries.api.present_proof.PresentationRequestCredentials.CredentialInfo;
 import org.hyperledger.aries.api.present_proof.PresentationRequestCredentialsFilter;
 import org.hyperledger.aries.api.revocation.RevRegCreateRequest;
+import org.hyperledger.aries.api.revocation.RevocationEvent.RevocationEventState;
 import org.hyperledger.aries.api.revocation.RevokeRequest;
 import org.hyperledger.aries.api.schema.SchemaSendRequest;
 import org.hyperledger.aries.api.schema.SchemaSendResponse;
@@ -53,14 +58,6 @@ import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonObject;
 
-import io.nessus.aries.coms.EventSubscriber;
-import io.nessus.aries.coms.WebSocketEventHandler.WebSocketEvent;
-import io.nessus.aries.events.ConnectionEventConsumer;
-import io.nessus.aries.events.PresentationProverEventConsumer;
-import io.nessus.aries.events.PresentationVerifierEventConsumer;
-import io.nessus.aries.events.RevocationEventConsumer;
-import io.nessus.aries.events.V1CredentialHolderEventConsumer;
-import io.nessus.aries.events.V1CredentialIssuerEventConsumer;
 import io.nessus.aries.wallet.CredentialProposalHelper;
 import io.nessus.aries.wallet.NessusWallet;
 import io.nessus.aries.wallet.WalletBuilder;
@@ -338,40 +335,42 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         ctx.putAttachment(Alice, wallet);
     }
 
-    void connectPeers(AttachmentContext ctx, String inviter, String invitee) throws Exception {
+    void connectPeers(AttachmentContext ctx, String inviterName, String inviteeName) throws Exception {
         
-        logSection(String.format("Connect %s to %s", inviter, invitee));
+        logSection(String.format("Connect %s to %s", inviterName, inviteeName));
         
-        NessusWallet inviterWallet = ctx.getWallet(inviter);
-        NessusWallet inviteeWallet = ctx.getWallet(invitee);
+        NessusWallet inviterWallet = ctx.getWallet(inviterName);
+        NessusWallet inviteeWallet = ctx.getWallet(inviteeName);
         
-        ConnectionEventConsumer inviterEvents = new ConnectionEventConsumer();
-        inviterEvents.subscribeTo(inviterWallet.getWebSocketEventHandler());
+        AriesClient inviter = createClient(inviterWallet);
+        AriesClient invitee = createClient(inviteeWallet);
         
-        ConnectionEventConsumer inviteeEvents = new ConnectionEventConsumer();
-        inviteeEvents.subscribeTo(inviteeWallet.getWebSocketEventHandler());
-        
-        AriesClient inviterClient = createClient(inviterWallet);
-        AriesClient inviteeClient = createClient(inviteeWallet);
+        AriesWebSocketClient inviterEvents = inviterWallet.getWebSocketClient();            
+        AriesWebSocketClient inviteeEvents = inviteeWallet.getWebSocketClient();            
         
         // Inviter creates an invitation (/connections/create-invitation)
         CreateInvitationRequest request = CreateInvitationRequest.builder().build();
-        CreateInvitationResponse response = inviterClient.connectionsCreateInvitation(request).get();
+        CreateInvitationResponse response = inviter.connectionsCreateInvitation(request).get();
         ConnectionInvitation invitation = response.getInvitation();
         
         // Invitee receives the invitation from the Inviter (/connections/receive-invitation)
-        inviteeClient.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
+        invitee.connectionsReceiveInvitation(ReceiveInvitationRequest.builder()
                 .recipientKeys(invitation.getRecipientKeys())
                 .serviceEndpoint(invitation.getServiceEndpoint())
                 .build(), ConnectionReceiveInvitationFilter.builder()
                     .autoAccept(true)
                     .build()).get();
         
-        inviterEvents.awaitConnectionActive(10, TimeUnit.SECONDS);
-        inviteeEvents.awaitConnectionActive(10, TimeUnit.SECONDS);
+        ConnectionRecord inviterConnectionRecord = inviterEvents.connection()
+                .filter(ConnectionRecord::stateIsActive)
+                .blockFirst(Duration.ofSeconds(10));
         
-        ctx.putAttachment(inviter + invitee + "Connection", inviterEvents.getConnectionRecord());
-        ctx.putAttachment(invitee + inviter + "Connection", inviteeEvents.getConnectionRecord());
+        ConnectionRecord inviteeConnectionRecord = inviteeEvents.connection()
+                .filter(ConnectionRecord::stateIsActive)
+                .blockFirst(Duration.ofSeconds(10));
+        
+        ctx.putAttachment(inviterName + inviteeName + "Connection", inviterConnectionRecord);
+        ctx.putAttachment(inviteeName + inviterName + "Connection", inviteeConnectionRecord);
     }
 
     void createTranscriptSchema(AttachmentContext ctx) throws IOException {
@@ -489,16 +488,13 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         String faberAliceConnectionId = ctx.getConnection(Faber, Alice).getConnectionId();
         
         NessusWallet issuerWallet = ctx.getWallet(Faber);
-        AriesClient issuer = createClient(issuerWallet);
-        
         NessusWallet holderWallet = ctx.getWallet(Alice);
-        AriesClient holder = createClient(holderWallet);
 
-        V1CredentialIssuerEventConsumer issuerEvents = new V1CredentialIssuerEventConsumer();
-        issuerEvents.subscribeTo(issuerWallet.getWebSocketEventHandler());
+        AriesClient issuer = createClient(issuerWallet);
+        AriesClient holder = createClient(holderWallet);
         
-        V1CredentialHolderEventConsumer holderEvents = new V1CredentialHolderEventConsumer();
-        holderEvents.subscribeTo(holderWallet.getWebSocketEventHandler());
+        AriesWebSocketClient issuerEvents = issuerWallet.getWebSocketClient();            
+        AriesWebSocketClient holderEvents = holderWallet.getWebSocketClient();            
         
         /* 1. Faber sends the Transcript Credential Offer
          * 
@@ -523,9 +519,10 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
          * 
          */
         
-        Assertions.assertTrue(holderEvents.awaitOfferReceived(10, TimeUnit.SECONDS), "No HOLDER OFFER_RECEIVED");
+        V1CredentialExchange holderExchange = holderEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.OFFER_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
-        V1CredentialExchange holderExchange = holderEvents.getCredentialExchange();
         CredentialProposal credentialProposal = holderExchange.getCredentialProposalDict().getCredentialProposal();
         CredentialProposalHelper credentialHelper = new CredentialProposalHelper(credentialProposal);
         Assertions.assertEquals("Alice", credentialHelper.getAttributeValue("first_name"));
@@ -544,13 +541,14 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
          * 
          */
 
-        Assertions.assertTrue(issuerEvents.awaitRequestReceived(10, TimeUnit.SECONDS), "No ISSUER REQUEST_RECEIVED");
+        V1CredentialExchange issuerExchange = issuerEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.REQUEST_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
         /* 5. Faber issues the Transcript Credential
          * 
          */
 
-        V1CredentialExchange issuerExchange = issuerEvents.getCredentialExchange();
         String issuerCredentialExchangeId = issuerExchange.getCredentialExchangeId();
         issuer.issueCredentialRecordsIssue(issuerCredentialExchangeId, V1CredentialIssueRequest.builder().build()).get();
         
@@ -558,23 +556,23 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
          * 
          */
 
-        Assertions.assertTrue(holderEvents.awaitCredentialReceived(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_RECEIVED");
+        holderExchange = holderEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.CREDENTIAL_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
         /* 7. Alice stores the Transcript Credential
          * 
          */
 
-        holderExchange = holderEvents.getCredentialExchange();
         String holderCredentialId = holderExchange.getCredentialId();
         holderCredentialExchangeId = holderExchange.getCredentialExchangeId();
         holder.issueCredentialRecordsStore(holderCredentialExchangeId, V1CredentialStoreRequest.builder()
                 .credentialId(holderCredentialId)
                 .build()).get();
 
-        Assertions.assertTrue(holderEvents.awaitCredentialAcked(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_ACKED");
-        
-        issuerEvents.cancelSubscription();
-        holderEvents.cancelSubscription();
+        holderExchange = holderEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.CREDENTIAL_ACKED)
+                .blockFirst(Duration.ofSeconds(10));
     }
 
     void applyForJobWithAcme(AttachmentContext ctx) throws Exception {
@@ -584,16 +582,13 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
         
         NessusWallet verifierWallet = ctx.getWallet(Acme);
-        AriesClient verifier = createClient(verifierWallet);
-        
         NessusWallet proverWallet = ctx.getWallet(Alice);
+        
+        AriesClient verifier = createClient(verifierWallet);
         AriesClient prover = createClient(proverWallet);
         
-        PresentationVerifierEventConsumer verifierEvents = new PresentationVerifierEventConsumer();
-        verifierEvents.subscribeTo(verifierWallet.getWebSocketEventHandler());
-        
-        PresentationProverEventConsumer proverEvents = new PresentationProverEventConsumer();
-        proverEvents.subscribeTo(proverWallet.getWebSocketEventHandler());
+        AriesWebSocketClient verifierEvents = verifierWallet.getWebSocketClient();            
+        AriesWebSocketClient proverEvents = proverWallet.getWebSocketClient();            
         
         /* 1. Acme creates a Job Application Proof Request
          * 
@@ -636,12 +631,13 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                         .build())
                 .build()).get();
         
-        Assertions.assertTrue(proverEvents.awaitRequestReceived(10, TimeUnit.SECONDS), "No PROVER REQUEST_RECEIVED");
-
+        PresentationExchangeRecord proverExchangeRecord = proverEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.REQUEST_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
+        
         // 2. Alice searches her Wallet for Credentials that she can use for the creating of Proof for the Job-Application Proof Request
         
         Map<String, String> referentMapping = new HashMap<>();
-        PresentationExchangeRecord proverExchangeRecord = proverEvents.getPresentationExchangeRecord();
         String proverExchangeId = proverExchangeRecord.getPresentationExchangeId();
         PresentationRequestCredentialsFilter credentialsFilter = PresentationRequestCredentialsFilter.builder().build();
         
@@ -694,27 +690,30 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                         "pred1_referent", indyRequestedPred.apply("pred1_referent")))
                 .build());
 
-        Assertions.assertTrue(verifierEvents.awaitPresentationReceived(10, TimeUnit.SECONDS), "No VERIFIER PRESENTATION_RECEIVED");
+        PresentationExchangeRecord verifierExchangeRecord = verifierEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.PRESENTATION_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
         /* 4. Acme verifies the Job Application Proof from Alice
          * 
          */
         
-        PresentationExchangeRecord verifierExchangeRecord = verifierEvents.getPresentationExchangeRecord();
         String verifierExchangeId = verifierExchangeRecord.getPresentationExchangeId();
         verifier.presentProofRecordsVerifyPresentation(verifierExchangeId).get();
         
-        Assertions.assertTrue(verifierEvents.awaitPresentationVerified(10, TimeUnit.SECONDS), "No VERIFIER VERIFIED");
-        Assertions.assertTrue(verifierEvents.getPresentationExchangeRecord().isVerified(), "Not VERIFIED");
+        verifierExchangeRecord = verifierEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.VERIFIED)
+                .blockFirst(Duration.ofSeconds(10));
         
-        Assertions.assertTrue(proverEvents.awaitPresentationAcked(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+        Assertions.assertTrue(verifierExchangeRecord.isVerified(), "Not VERIFIED");
+        
+        proverEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.PRESENTATION_ACKED)
+                .blockFirst(Duration.ofSeconds(10));
         
         // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
         // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
         //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
-        
-        verifierEvents.cancelSubscription();
-        proverEvents.cancelSubscription();
     }
 
     void getJobWithAcme(AttachmentContext ctx) throws Exception {
@@ -724,16 +723,13 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
         
         NessusWallet issuerWallet = ctx.getWallet(Acme);
-        AriesClient issuer = createClient(issuerWallet);
-        
         NessusWallet holderWallet = ctx.getWallet(Alice);
-        AriesClient holder = createClient(holderWallet);
-
-        V1CredentialIssuerEventConsumer issuerEvents = new V1CredentialIssuerEventConsumer();
-        issuerEvents.subscribeTo(issuerWallet.getWebSocketEventHandler());
         
-        V1CredentialHolderEventConsumer holderEvents = new V1CredentialHolderEventConsumer();
-        holderEvents.subscribeTo(holderWallet.getWebSocketEventHandler());
+        AriesClient issuer = createClient(issuerWallet);
+        AriesClient holder = createClient(holderWallet);
+        
+        AriesWebSocketClient issuerEvents = issuerWallet.getWebSocketClient();            
+        AriesWebSocketClient holderEvents = holderWallet.getWebSocketClient();            
         
         /* 1. Acme sends the JobCertificate Credential Offer
          * 
@@ -757,9 +753,10 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
          * 
          */
         
-        Assertions.assertTrue(holderEvents.awaitOfferReceived(10, TimeUnit.SECONDS), "No HOLDER OFFER_RECEIVED");
+        V1CredentialExchange holderExchange = holderEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.OFFER_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
-        V1CredentialExchange holderExchange = holderEvents.getCredentialExchange();
         CredentialProposal credentialProposal = holderExchange.getCredentialProposalDict().getCredentialProposal();
         CredentialProposalHelper credentialHelper = new CredentialProposalHelper(credentialProposal);
         Assertions.assertEquals("Alice", credentialHelper.getAttributeValue("first_name"));
@@ -778,13 +775,14 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
          * 
          */
 
-        Assertions.assertTrue(issuerEvents.awaitRequestReceived(10, TimeUnit.SECONDS), "No ISSUER REQUEST_RECEIVED");
+        V1CredentialExchange issuerExchange = issuerEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.REQUEST_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
         /* 5. Acme issues the JobCertificate Credential
          * 
          */
 
-        V1CredentialExchange issuerExchange = issuerEvents.getCredentialExchange();
         String issuerCredentialExchangeId = issuerExchange.getCredentialExchangeId();
         V1CredentialIssueRequest credentialIssueRequest = V1CredentialIssueRequest.builder().build();
         
@@ -794,13 +792,14 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
          * 
          */
 
-        Assertions.assertTrue(holderEvents.awaitCredentialReceived(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_RECEIVED");
+        holderExchange = holderEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.CREDENTIAL_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
         /* 7. Alice stores the Transcript Credential
          * 
          */
 
-        holderExchange = holderEvents.getCredentialExchange();
         String holderCredentialId = holderExchange.getCredentialId();
         holderCredentialExchangeId = holderExchange.getCredentialExchangeId();
         V1CredentialStoreRequest credentialStoreRequest = V1CredentialStoreRequest.builder()
@@ -809,10 +808,9 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         
         holder.issueCredentialRecordsStore(holderCredentialExchangeId, credentialStoreRequest).get();
 
-        Assertions.assertTrue(holderEvents.awaitCredentialAcked(10, TimeUnit.SECONDS), "No HOLDER CREDENTIAL_ACKED");
-        
-        issuerEvents.cancelSubscription();
-        holderEvents.cancelSubscription();
+        holderExchange = holderEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.CREDENTIAL_ACKED)
+                .blockFirst(Duration.ofSeconds(10));
     }
 
     void applyForLoanWithThrift(AttachmentContext ctx, boolean expectedOutcome) throws Exception {
@@ -822,16 +820,13 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
 
         NessusWallet verifierWallet = ctx.getWallet(Thrift);
-        AriesClient verifier = createClient(verifierWallet);
-        
         NessusWallet proverWallet = ctx.getWallet(Alice);
-        AriesClient prover = createClient(proverWallet);
-               
-        PresentationVerifierEventConsumer verifierEvents = new PresentationVerifierEventConsumer();
-        verifierEvents.subscribeTo(verifierWallet.getWebSocketEventHandler());
         
-        PresentationProverEventConsumer proverEvents = new PresentationProverEventConsumer();
-        proverEvents.subscribeTo(proverWallet.getWebSocketEventHandler());
+        AriesClient verifier = createClient(verifierWallet);
+        AriesClient prover = createClient(proverWallet);
+        
+        AriesWebSocketClient verifierEvents = verifierWallet.getWebSocketClient();            
+        AriesWebSocketClient proverEvents = proverWallet.getWebSocketClient();            
         
         /* 1. Alice gets a Loan-Application Proof Request from Thrift Bank
          * 
@@ -867,15 +862,17 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                         .build())
                 .build()).get();
         
-        Assertions.assertTrue(proverEvents.awaitRequestReceived(10, TimeUnit.SECONDS), "No PROVER REQUEST_RECEIVED");
+        PresentationExchangeRecord proverExchangeRecord = proverEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.REQUEST_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
 
         // 2. Alice searches her Wallet for Credentials that she can use for the creating of Proof for the Loan-Application Proof Request
         
         Map<String, String> referentMapping = new HashMap<>();
-        PresentationExchangeRecord proverExchangeRecord = proverEvents.getPresentationExchangeRecord();
         String proverExchangeId = proverExchangeRecord.getPresentationExchangeId();
+        PresentationRequestCredentialsFilter credentialsFilter = PresentationRequestCredentialsFilter.builder().build();
         
-        List<PresentationRequestCredentials> credentials = prover.presentProofRecordsCredentials(proverExchangeId).get();
+        List<PresentationRequestCredentials> credentials = prover.presentProofRecordsCredentials(proverExchangeId, credentialsFilter).get();
         Assertions.assertEquals(1, credentials.size(), "Expected single Credential");
         
         credentials.stream().forEach(cred -> {
@@ -919,28 +916,30 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                         "pred2_referent", indyRequestedPred.apply("pred2_referent")))
                 .build());
 
-        Assertions.assertTrue(verifierEvents.awaitPresentationReceived(10, TimeUnit.SECONDS), "No VERIFIER PRESENTATION_RECEIVED");
+        PresentationExchangeRecord verifierExchangeRecord = verifierEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.PRESENTATION_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
         /* 4. Thrift verifies the Loan-Application Proof from Alice
          * 
          */
         
-        PresentationExchangeRecord verifierExchangeRecord = verifierEvents.getPresentationExchangeRecord();
         String verifierExchangeId = verifierExchangeRecord.getPresentationExchangeId();
         verifier.presentProofRecordsVerifyPresentation(verifierExchangeId).get();
         
-        Assertions.assertTrue(verifierEvents.awaitPresentationVerified(10, TimeUnit.SECONDS), "No VERIFIER VERIFIED");
-        verifierExchangeRecord = verifierEvents.getPresentationExchangeRecord();
+        verifierExchangeRecord = verifierEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.VERIFIED)
+                .blockFirst(Duration.ofSeconds(10));
+        
         Assertions.assertEquals(expectedOutcome, verifierExchangeRecord.isVerified(), "Unexpected verification outcome");
         
-        Assertions.assertTrue(proverEvents.awaitPresentationAcked(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+        proverEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.PRESENTATION_ACKED)
+                .blockFirst(Duration.ofSeconds(10));
 
         // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
         // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
         //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
-
-        verifierEvents.cancelSubscription();
-        proverEvents.cancelSubscription();
     }
 
     void kycProcessWithThrift(AttachmentContext ctx) throws Exception {
@@ -950,16 +949,13 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         String thriftAliceConnectionId = ctx.getConnection(Thrift, Alice).getConnectionId();
 
         NessusWallet verifierWallet = ctx.getWallet(Thrift);
-        AriesClient verifier = createClient(verifierWallet);
-        
         NessusWallet proverWallet = ctx.getWallet(Alice);
+
+        AriesClient verifier = createClient(verifierWallet);
         AriesClient prover = createClient(proverWallet);
-               
-        PresentationVerifierEventConsumer verifierEvents = new PresentationVerifierEventConsumer();
-        verifierEvents.subscribeTo(verifierWallet.getWebSocketEventHandler());
         
-        PresentationProverEventConsumer proverEvents = new PresentationProverEventConsumer();
-        proverEvents.subscribeTo(proverWallet.getWebSocketEventHandler());
+        AriesWebSocketClient verifierEvents = verifierWallet.getWebSocketClient();            
+        AriesWebSocketClient proverEvents = proverWallet.getWebSocketClient();            
         
         /* 1. Alice gets a second Proof Request from Thrift Bank
          * 
@@ -984,15 +980,17 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                         .build())
                 .build()).get();
         
-        Assertions.assertTrue(proverEvents.awaitRequestReceived(10, TimeUnit.SECONDS), "No PROVER REQUEST_RECEIVED");
+        PresentationExchangeRecord proverExchangeRecord = proverEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.REQUEST_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
         // 2. Alice searches her Wallet for Credentials that she can use for the creating of Proof for the KYC Proof Request
         
         Map<String, String> referentMapping = new HashMap<>();
-        PresentationExchangeRecord proverExchangeRecord = proverEvents.getPresentationExchangeRecord();
         String proverExchangeId = proverExchangeRecord.getPresentationExchangeId();
+        PresentationRequestCredentialsFilter credentialsFilter = PresentationRequestCredentialsFilter.builder().build();
         
-        List<PresentationRequestCredentials> credentials = prover.presentProofRecordsCredentials(proverExchangeId).get();
+        List<PresentationRequestCredentials> credentials = prover.presentProofRecordsCredentials(proverExchangeId, credentialsFilter).get();
         Assertions.assertEquals(1, credentials.size(), "Expected single Credential");
 
         credentials.stream().forEach(cred -> {
@@ -1032,28 +1030,29 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                         "attr3_referent", indyRequestedAttr.apply("attr3_referent", true)))
                 .build());
 
-        Assertions.assertTrue(verifierEvents.awaitPresentationReceived(10, TimeUnit.SECONDS), "No VERIFIER PRESENTATION_RECEIVED");
+        PresentationExchangeRecord verifierExchangeRecord = verifierEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.PRESENTATION_RECEIVED)
+                .blockFirst(Duration.ofSeconds(10));
         
         /* 4. Thrift verifies the KYC-Application Proof from Alice
          * 
          */
         
-        PresentationExchangeRecord verifierExchangeRecord = verifierEvents.getPresentationExchangeRecord();
         String verifierExchangeId = verifierExchangeRecord.getPresentationExchangeId();
         verifier.presentProofRecordsVerifyPresentation(verifierExchangeId).get();
         
-        Assertions.assertTrue(verifierEvents.awaitPresentationVerified(10, TimeUnit.SECONDS), "No VERIFIER VERIFIED");
-        verifierExchangeRecord = verifierEvents.getPresentationExchangeRecord();
+        verifierExchangeRecord = verifierEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.VERIFIED)
+                .blockFirst(Duration.ofSeconds(10));
         Assertions.assertTrue(verifierExchangeRecord.isVerified(), "Not VERIFIED");
         
-        Assertions.assertTrue(proverEvents.awaitPresentationAcked(10, TimeUnit.SECONDS), "No PROVER PRESENTATION_ACKED");
+        proverEvents.presentationEx()
+                .filter(pex -> pex.getState() == PresentationExchangeState.PRESENTATION_ACKED)
+                .blockFirst(Duration.ofSeconds(10));
 
         // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
         // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
         //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
-
-        verifierEvents.cancelSubscription();
-        proverEvents.cancelSubscription();
     }
 
     void acmeRevokesTheJobCertificate(AttachmentContext ctx) throws Exception {
@@ -1063,20 +1062,14 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         String acmeAliceConnectionId = ctx.getConnection(Acme, Alice).getConnectionId();
 
         NessusWallet issuerWallet = ctx.getWallet(Acme);
-        NessusWallet holderWallet = ctx.getWallet(Alice);
 
         AriesClient issuer = createClient(issuerWallet);
-        
-        RevocationEventConsumer issuerRevocationEvents = new RevocationEventConsumer();
-        issuerRevocationEvents.subscribeTo(issuerWallet.getWebSocketEventHandler());
-        
-        V1CredentialIssuerEventConsumer issuerCredentialEvents = new V1CredentialIssuerEventConsumer();
-        issuerCredentialEvents.subscribeTo(issuerWallet.getWebSocketEventHandler());
+        AriesWebSocketClient issuerEvents = issuerWallet.getWebSocketClient();   
         
         // [TODO] There is currently no event that the Holder could listen to
-        EventSubscriber<WebSocketEvent> holderSubscriber = holderWallet.getWebSocketEventHandler().subscribeMultiple(null, ev -> { 
-            log.info("{}: [@{}] {} {} {}", ev.getThisWalletName(), ev.getTheirWalletName(), ev.getPayload()); 
-        });
+        // NessusWallet holderWallet = ctx.getWallet(Alice);
+        // AriesClient holder = createClient(holderWallet);
+        // AriesWebSocketClient holderEvents = holderWallet.getWebSocketClient();            
         
         // 1. Acme searches the Job-Certificate Credential
         
@@ -1099,11 +1092,12 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                 .notify(true)
                 .build()).get();
         
-        Assertions.assertTrue(issuerRevocationEvents.awaitCredentialRevoked(10, TimeUnit.SECONDS), "No RevocationEvent");
-        Assertions.assertTrue(issuerCredentialEvents.awaitCredentialRevoked(10, TimeUnit.SECONDS), "No ISSUER CREDENTIAL_REVOKED");
+        issuerEvents.issuerRevocation()
+            .filter(rev -> rev.getState() == RevocationEventState.REVOKED)
+            .blockFirst(Duration.ofSeconds(10));
         
-        issuerRevocationEvents.cancelSubscription();
-        issuerCredentialEvents.cancelSubscription();
-        holderSubscriber.cancelSubscription();
+        issuerEvents.credentialEx()
+                .filter(cex -> cex.getState() == CredentialExchangeState.CREDENTIAL_REVOKED)
+                .blockFirst(Duration.ofSeconds(10));
     }
 }

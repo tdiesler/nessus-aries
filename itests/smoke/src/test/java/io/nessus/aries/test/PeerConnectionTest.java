@@ -3,11 +3,12 @@ package io.nessus.aries.test;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.aries.AriesClient;
+import org.hyperledger.aries.AriesWebSocketClient;
 import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionState;
@@ -17,8 +18,6 @@ import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import io.nessus.aries.events.ConnectionEventConsumer;
-import io.nessus.aries.util.AssertState;
 import io.nessus.aries.wallet.NessusWallet;
 
 /**
@@ -26,7 +25,7 @@ import io.nessus.aries.wallet.NessusWallet;
  * 
  * https://github.com/hyperledger/aries-rfcs/tree/main/features/0160-connection-protocol
  */
-public class MultitenantConnectionTest extends AbstractAriesTest {
+public class PeerConnectionTest extends AbstractAriesTest {
 
     @Test
     void testMultitenantWallets() throws Exception {
@@ -41,15 +40,12 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
         try {
             
             logSection("Connect Faber to Alice");
-            
-            ConnectionEventConsumer inviterEvents = new ConnectionEventConsumer();
-            inviterEvents.subscribeTo(inviterWallet.getWebSocketEventHandler());
-            
-            ConnectionEventConsumer inviteeEvents = new ConnectionEventConsumer();
-            inviteeEvents.subscribeTo(inviteeWallet.getWebSocketEventHandler());
-            
+
             AriesClient inviter = createClient(inviterWallet);
             AriesClient invitee = createClient(inviteeWallet);
+            
+            AriesWebSocketClient inviterWSClient = inviterWallet.getWebSocketClient();            
+            AriesWebSocketClient inviteeWSClient = inviteeWallet.getWebSocketClient();            
             
             // Inviter creates an invitation (/connections/create-invitation)
             CreateInvitationResponse response = inviter.connectionsCreateInvitation(CreateInvitationRequest.builder().build()).get();
@@ -62,12 +58,17 @@ public class MultitenantConnectionTest extends AbstractAriesTest {
                     .build(), ConnectionReceiveInvitationFilter.builder()
                         .autoAccept(true)
                         .build()).get();
+
+            ConnectionRecord inviterConnectionRecord = inviterWSClient.connection()
+                    .filter(ConnectionRecord::stateIsActive)
+                    .blockFirst(Duration.ofSeconds(10));
             
-            AssertState.isTrue(inviterEvents.awaitConnectionActive(10, TimeUnit.SECONDS), "NO ACTIVE connections");
-            AssertState.isTrue(inviteeEvents.awaitConnectionActive(10, TimeUnit.SECONDS), "NO ACTIVE connections");
+            ConnectionRecord inviteeConnectionRecord = inviteeWSClient.connection()
+                    .filter(ConnectionRecord::stateIsActive)
+                    .blockFirst(Duration.ofSeconds(10));
             
-            String inviterConnectionId = inviterEvents.getConnectionRecord().getConnectionId();
-            String inviteeConnectionId = inviteeEvents.getConnectionRecord().getConnectionId();
+            String inviterConnectionId = inviterConnectionRecord.getConnectionId();
+            String inviteeConnectionId = inviteeConnectionRecord.getConnectionId();
 
             // Verify that Faber can access their connection
             List<ConnectionRecord> faberConnections = inviter.connections().get();
