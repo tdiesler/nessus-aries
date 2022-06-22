@@ -7,8 +7,8 @@ PWD=$(pwd)
 TARGET_DIR="${PWD}/target"
 
 if [[ -z ${ACAPY_VERSION} ]]; then
-    #ACAPY_VERSION="0.7.3"
-    ACAPY_VERSION="dev"
+    # Set ACAPY_VERSION="dev" to use the latest
+    ACAPY_VERSION="0.7.4-rc4"
 fi
 
 if [[ -z ${TAILS_SERVER_VERSION} ]]; then
@@ -37,8 +37,8 @@ function buildAcaPyImage () {
         git checkout "${ACAPY_VERSION}"
     else
         cd ${HOME}/git/aries-cloudagent-python
-        # git checkout main
-        # git pull origin main
+        git checkout main
+        git pull origin main
     fi
     
     echo "Building ${fullName} ..."

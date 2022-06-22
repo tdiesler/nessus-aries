@@ -46,11 +46,8 @@
     <!-- Properties -->
     <properties>
 
-        <!-- Camel versions -->
-        <version.apache.camel>3.17.0-SNAPSHOT</version.apache.camel>
-        
         <!-- Other versions -->
-		<version.acapy.client>0.7.24-SNAPSHOT</version.acapy.client>   
+		<version.acapy.client>0.7.25-SNAPSHOT</version.acapy.client>   
         <version.args4j>2.33</version.args4j>
         <version.slf4j>1.7.33</version.slf4j>
         <version.snakeyaml>1.30</version.snakeyaml>
@@ -63,7 +60,7 @@
         -->
         <version-build-helper-plugin>3.3.0</version-build-helper-plugin>
         <version-buildnumber-maven-plugin>1.4</version-buildnumber-maven-plugin>
-        <version-docker-maven-plugin>0.39.1</version-docker-maven-plugin>
+        <version-docker-maven-plugin>0.40.1</version-docker-maven-plugin>
         <version-maven-assembly-plugin>3.3.0</version-maven-assembly-plugin>
         <version-maven-clean-plugin>3.1.0</version-maven-clean-plugin>
         <version-maven-compiler-plugin>3.8.1</version-maven-compiler-plugin>
@@ -86,7 +83,6 @@
     <!-- Modules -->
     <modules>
         <module>common</module>
-        <module>demo</module>
         <module>itests</module>
     </modules>
 
@@ -314,5 +310,11 @@
 
     <!-- Profiles -->
     <profiles>
+        <profile>
+            <id>demo</id>
+            <modules>
+                <module>demo</module>
+            </modules>
+        </profile>
     </profiles>
 </project>

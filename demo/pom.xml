@@ -37,6 +37,7 @@
 
     <!-- Properties -->
     <properties>
+        <version.apache.camel>3.17.1-SNAPSHOT</version.apache.camel>
         <docker.image.name>nessusio/aries-demo</docker.image.name>
         <docker.image.version>latest</docker.image.version>
     </properties>
@@ -119,7 +120,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>io.nessus.aries.demo.Main</mainClass>
+                            <mainClass>io.nessus.aries.demo.FaberCollegeMain</mainClass>
                         </manifest>
                         <manifestEntries>
                             <Implementation-Version>${project.version}</Implementation-Version>

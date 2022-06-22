@@ -711,9 +711,9 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                 .filter(pex -> pex.getState() == PresentationExchangeState.PRESENTATION_ACKED)
                 .blockFirst(Duration.ofSeconds(10));
         
-        // [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
+        // [TODO] [#1754] Prover cannot know verification outcome from PRESENTATION_ACKED
         // https://github.com/hyperledger/aries-cloudagent-python/issues/1754
-        //Assertions.assertTrue(proverExchangeRecord[0].isVerified(), "Not VERIFIED");
+        // Assertions.assertTrue(prooverExchangeRecord.isVerified(), "Not VERIFIED");
     }
 
     void getJobWithAcme(AttachmentContext ctx) throws Exception {
@@ -1064,12 +1064,12 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
         NessusWallet issuerWallet = ctx.getWallet(Acme);
 
         AriesClient issuer = createClient(issuerWallet);
+
         AriesWebSocketClient issuerEvents = issuerWallet.getWebSocketClient();   
         
         // [TODO] There is currently no event that the Holder could listen to
         // NessusWallet holderWallet = ctx.getWallet(Alice);
-        // AriesClient holder = createClient(holderWallet);
-        // AriesWebSocketClient holderEvents = holderWallet.getWebSocketClient();            
+        // AriesWebSocketClient holderEvents = holderWallet.getWebSocketClient();   
         
         // 1. Acme searches the Job-Certificate Credential
         
@@ -1093,11 +1093,15 @@ public class AriesGettingStartedTest extends AbstractAriesTest {
                 .build()).get();
         
         issuerEvents.issuerRevocation()
+            .filter(rev -> rev.getState() == RevocationEventState.ISSUED)
+            .blockFirst(Duration.ofSeconds(10));
+    
+        issuerEvents.issuerRevocation()
             .filter(rev -> rev.getState() == RevocationEventState.REVOKED)
             .blockFirst(Duration.ofSeconds(10));
-        
+    
         issuerEvents.credentialEx()
-                .filter(cex -> cex.getState() == CredentialExchangeState.CREDENTIAL_REVOKED)
-                .blockFirst(Duration.ofSeconds(10));
+            .filter(cex -> cex.getState() == CredentialExchangeState.CREDENTIAL_REVOKED)
+            .blockFirst(Duration.ofSeconds(10));
     }
 }

@@ -27,6 +27,7 @@ import org.hyperledger.aries.webhook.IEventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
@@ -37,6 +38,8 @@ public class DefaultEventHandler implements IEventHandler {
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
+    private static final Gson pretty = GsonConfig.prettyPrinter();
+
     private final EventParser parser = new EventParser();
 
     private final WalletRegistry walletRegistry;
@@ -131,10 +134,11 @@ public class DefaultEventHandler implements IEventHandler {
                 }
                 return;
             }
-            if (log.isTraceEnabled())
-                log.trace("{}: [@{}] {}", getThisWalletName(), getWalletName(theirWalletId), value);
             
             consumer.accept(new WebSocketEvent(theirWalletId, topic, value));
+            if (log.isTraceEnabled()) {
+                log.trace("RequestBody\n{}", pretty.toJson(JsonParser.parseString(payload)));
+            }
             
         } catch (Throwable e) {
             log.error("Error in webhook event handler:", e);

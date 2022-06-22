@@ -5,9 +5,8 @@ import static io.nessus.aries.AgentConfiguration.getSystemEnv;
 import java.io.IOException;
 
 import org.hyperledger.acy_py.generated.model.DID;
-import org.hyperledger.acy_py.generated.model.DIDCreate;
 import org.hyperledger.acy_py.generated.model.DIDEndpoint;
-import org.hyperledger.acy_py.generated.model.RegisterLedgerNymResponse;
+import org.hyperledger.acy_py.generated.model.TxnOrRegisterLedgerNymResponse;
 import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.ledger.IndyLedgerRoles;
 import org.hyperledger.aries.api.ledger.RegisterNymFilter;
@@ -15,6 +14,7 @@ import org.hyperledger.aries.api.multitenancy.CreateWalletRequest;
 import org.hyperledger.aries.api.multitenancy.WalletDispatchType;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.api.multitenancy.WalletType;
+import org.hyperledger.aries.api.wallet.WalletDIDCreate;
 import org.hyperledger.aries.config.GsonConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -118,14 +118,14 @@ public class WalletBuilder {
             
             // Create a local DID for the wallet
             AriesClient client = AriesClientFactory.createClient(nessusWallet, agentConfig);
-            DID did = client.walletDidCreate(DIDCreate.builder().build()).get();
+            DID did = client.walletDidCreate(WalletDIDCreate.builder().build()).get();
             log.info("{}: {}", walletName, did);
             
             if (trusteeWallet != null) {
                 
                 AriesClient trustee = AriesClientFactory.createClient(trusteeWallet, agentConfig);
                 String trusteeName = trusteeWallet.getSettings().getWalletName();
-                RegisterLedgerNymResponse nymResponse = trustee.ledgerRegisterNym(RegisterNymFilter.builder()
+                TxnOrRegisterLedgerNymResponse nymResponse = trustee.ledgerRegisterNym(RegisterNymFilter.builder()
                         .did(did.getDid())
                         .verkey(did.getVerkey())
                         .role(ledgerRole)

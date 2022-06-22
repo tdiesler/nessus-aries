@@ -32,9 +32,9 @@ docker run -it --rm \
         --spreadsheet-id=1D2RogwD1LgsNC9rRc7JET1aXUPIyORP57QQO6lNb2nw
     
 */
-public class Main {
+public class FaberCollegeMain {
 
-    static final Logger log = LoggerFactory.getLogger(Main.class);
+    static final Logger log = LoggerFactory.getLogger(FaberCollegeMain.class);
     
     static class DemoOptions {
         
@@ -74,7 +74,7 @@ public class Main {
     }
 
     public static void main(String[] args) throws Exception {
-        new Main().run(args);
+        new FaberCollegeMain().run(args);
     }
 
     private HyperledgerAriesComponent getHyperledgerAriesComponent(CamelContext camelctx) {

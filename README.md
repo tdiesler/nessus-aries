@@ -17,6 +17,7 @@ Shouldn't we have in fact a [self sovereign identity](https://www.manning.com/bo
 * [The Story of Open SSI Standards](https://www.youtube.com/watch?v=RllH91rcFdE)
 * [Hyperledger Aries Wiki](https://wiki.hyperledger.org/display/aries)
 * [Aries Cloud Agent](https://github.com/hyperledger/aries-ACA-Py-controllers/tree/main/AliceFaberAcmeDemo)
+* [Aries Protocol RFCs](https://github.com/hyperledger/aries-rfcs/tree/main/features)
 
 ### Ledger with VON-Network
 
