@@ -61,6 +61,7 @@
         <version-build-helper-plugin>3.3.0</version-build-helper-plugin>
         <version-buildnumber-maven-plugin>1.4</version-buildnumber-maven-plugin>
         <version-docker-maven-plugin>0.40.1</version-docker-maven-plugin>
+        <version-license-maven-plugin>2.0.0</version-license-maven-plugin>
         <version-maven-assembly-plugin>3.3.0</version-maven-assembly-plugin>
         <version-maven-clean-plugin>3.1.0</version-maven-clean-plugin>
         <version-maven-compiler-plugin>3.8.1</version-maven-compiler-plugin>
@@ -210,6 +211,18 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>build-helper-maven-plugin</artifactId>
                     <version>${version-build-helper-plugin}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <version>${version-license-maven-plugin}</version>
+                    <configuration>
+                        <organizationName>Nessus</organizationName>
+                        <inceptionYear>2022</inceptionYear>
+                        <licenseName>apache_v2</licenseName>
+                        <addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
+                        <excludes>**/log4j2.properties</excludes>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
