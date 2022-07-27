@@ -25,16 +25,16 @@ import org.hyperledger.aries.api.multitenancy.WalletRecord;
 public class AriesClientFactory {
 
     /**
-     * Create a client for the base wallet
+     * Create a client for the admin wallet
      */
-    public static AriesClient baseClient() {
+    public static AriesClient adminClient() {
         return createClient(null, AgentConfiguration.defaultConfiguration());
     }
     
     /**
-     * Create a client for the base wallet
+     * Create a client for the admin wallet
      */
-    public static AriesClient baseClient(AgentConfiguration config) {
+    public static AriesClient adminClient(AgentConfiguration config) {
         return createClient(null, config);
     }
     

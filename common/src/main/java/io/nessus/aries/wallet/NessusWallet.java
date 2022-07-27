@@ -110,14 +110,14 @@ public class NessusWallet extends WalletRecord implements AutoCloseable {
         if (walletRegistry != null)
             walletRegistry.removeWallet(getWalletId());
             
-        AriesClient baseClient = AriesClientFactory.baseClient();
-        baseClient.multitenancyWalletRemove(getWalletId(), RemoveWalletRequest.builder()
+        AriesClient adminClient = AriesClientFactory.adminClient();
+        adminClient.multitenancyWalletRemove(getWalletId(), RemoveWalletRequest.builder()
                 .walletKey(getToken())
                 .build());
 
         // Wait for the wallet to get removed 
         sleepWell(500); 
-        while (!baseClient.multitenancyWallets(getWalletName()).get().isEmpty()) {
+        while (!adminClient.multitenancyWallets(getWalletName()).get().isEmpty()) {
             sleepWell(500); 
         }
     }

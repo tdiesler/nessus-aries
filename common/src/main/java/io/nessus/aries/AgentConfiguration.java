@@ -87,6 +87,12 @@ public class AgentConfiguration {
         return agentApiKey;
     }
 
+    @Override
+    public String toString() {
+        String reductedKey = agentApiKey != null ? agentApiKey.substring(0, 4) + "..." : null;
+        return "AgentConfiguration [agentAdminUrl=" + agentAdminUrl + ", agentUserUrl=" + agentUserUrl + ", agentApiKey=" + reductedKey + "]";
+    }
+
     public static class AgentConfigurationBuilder {
         
         private String adminUrl;

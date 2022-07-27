@@ -125,8 +125,8 @@ public class WalletBuilder {
                 .build();
         log.info("CreateWalletRequest: {}", gson.toJson(walletRequest));
         
-        AriesClient baseClient = AriesClientFactory.baseClient(agentConfig);
-        WalletRecord walletRecord = baseClient.multitenancyWalletCreate(walletRequest).get();
+        AriesClient adminClient = AriesClientFactory.adminClient(agentConfig);
+        WalletRecord walletRecord = adminClient.multitenancyWalletCreate(walletRequest).get();
         NessusWallet nessusWallet = NessusWallet.build(walletRecord).withWalletRegistry(walletRegistry);
         String walletId = nessusWallet.getWalletId();
         log.info("{}: [{}] {}", walletName, walletId, nessusWallet);
