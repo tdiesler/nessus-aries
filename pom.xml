@@ -30,7 +30,7 @@
     <artifactId>nessus-aries</artifactId>
     <packaging>pom</packaging>
 
-    <version>0.1.2-SNAPSHOT</version>
+    <version>0.2.0</version>
 
     <description>Hyperledger Aries Integration</description>
     <url>https://github.com/tdiesler/nessus-aries</url>
@@ -40,7 +40,7 @@
         <connection>scm:git:https://github.com/tdiesler/nessus-aries.git</connection>
         <developerConnection>scm:git:git@github.com:tdiesler/nessus-aries.git</developerConnection>
         <url>http://github.com/tdiesler/nessus-aries</url>
-        <tag>0.1.0</tag>
+        <tag>0.2.0</tag>
     </scm>
 
     <!-- Properties -->
