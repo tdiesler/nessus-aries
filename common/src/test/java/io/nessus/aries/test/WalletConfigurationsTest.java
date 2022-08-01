@@ -20,6 +20,10 @@
 
 package io.nessus.aries.test;
 
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.io.File;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +36,10 @@ public class WalletConfigurationsTest extends AbstractTest {
     @Test
     void tesUnauthorized() throws Exception {
 
+        String home = System.getProperty("user.home");
+        File infile = new File(home + "/.config/aries-cli/config.yaml");
+        assumeTrue(infile.isFile());
+        
         WalletConfigurations configs = WalletConfigurations.loadWalletConfigurations();
         
         WalletConfig faber = configs.getWalletConfig("Faber");

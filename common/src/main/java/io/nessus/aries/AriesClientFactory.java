@@ -28,27 +28,27 @@ public class AriesClientFactory {
      * Create a client for the admin wallet
      */
     public static AriesClient adminClient() {
-        return createClient(null, AgentConfiguration.defaultConfiguration());
+        return createClient(AgentConfiguration.defaultConfiguration(), null);
     }
     
     /**
      * Create a client for the admin wallet
      */
     public static AriesClient adminClient(AgentConfiguration config) {
-        return createClient(null, config);
+        return createClient(config, null);
     }
     
     /**
      * Create a client for a multitenant wallet
      */
     public static AriesClient createClient(WalletRecord wallet) {
-        return createClient(wallet, AgentConfiguration.defaultConfiguration());
+        return createClient(AgentConfiguration.defaultConfiguration(), wallet);
     }
     
     /**
      * Create a client for a multitenant wallet
      */
-    public static AriesClient createClient(WalletRecord wallet, AgentConfiguration config) {
+    public static AriesClient createClient(AgentConfiguration config, WalletRecord wallet) {
         return AriesClient.builder()
                 .url(config.getAdminUrl())
                 .apiKey(config.getApiKey())

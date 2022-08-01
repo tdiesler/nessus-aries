@@ -45,7 +45,7 @@ public class NessusWalletTest extends AbstractAriesTest {
                 .ledgerRole(ENDORSER).selfRegisterNym().build();
         try {
             
-            AriesClient client = createClient(faberWallet);
+            AriesClient client = faberWallet.createClient();
             DID did = client.walletDidPublic().get();
             
             // Verify that we can access the ledger

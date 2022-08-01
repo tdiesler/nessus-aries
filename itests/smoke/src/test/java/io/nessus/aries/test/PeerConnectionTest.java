@@ -22,22 +22,23 @@ package io.nessus.aries.test;
 
 import static org.hyperledger.aries.api.ledger.IndyLedgerRoles.ENDORSER;
 
-import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.hyperledger.acy_py.generated.model.ConnectionInvitation;
 import org.hyperledger.aries.AriesClient;
-import org.hyperledger.aries.AriesWebSocketClient;
 import org.hyperledger.aries.api.connection.ConnectionReceiveInvitationFilter;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
 import org.hyperledger.aries.api.connection.ConnectionState;
 import org.hyperledger.aries.api.connection.CreateInvitationRequest;
 import org.hyperledger.aries.api.connection.CreateInvitationResponse;
 import org.hyperledger.aries.api.connection.ReceiveInvitationRequest;
+import org.hyperledger.aries.webhook.EventType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.nessus.aries.wallet.NessusWallet;
+import io.nessus.aries.websocket.WebSocketClient;
 
 /**
  * Test RFC 0160: Connection Protocol with multitenant wallets
@@ -60,11 +61,11 @@ public class PeerConnectionTest extends AbstractAriesTest {
             
             logSection("Connect Faber to Alice");
 
-            AriesClient inviter = createClient(inviterWallet);
-            AriesClient invitee = createClient(inviteeWallet);
+            AriesClient inviter = inviterWallet.createClient();
+            AriesClient invitee = inviteeWallet.createClient();
             
-            AriesWebSocketClient inviterWSClient = inviterWallet.getWebSocketClient();            
-            AriesWebSocketClient inviteeWSClient = inviteeWallet.getWebSocketClient();            
+            WebSocketClient inviterWSClient = inviterWallet.createWebSocketClient().startRecording(EventType.CONNECTIONS);            
+            WebSocketClient inviteeWSClient = inviteeWallet.createWebSocketClient().startRecording(EventType.CONNECTIONS);            
             
             // Inviter creates an invitation (/connections/create-invitation)
             CreateInvitationResponse response = inviter.connectionsCreateInvitation(CreateInvitationRequest.builder().build()).get();
@@ -78,13 +79,13 @@ public class PeerConnectionTest extends AbstractAriesTest {
                         .autoAccept(true)
                         .build()).get();
 
-            ConnectionRecord inviterConnectionRecord = inviterWSClient.connection()
-                    .filter(ConnectionRecord::stateIsActive)
-                    .blockFirst(Duration.ofSeconds(10));
+            ConnectionRecord inviterConnectionRecord = inviterWSClient
+            		.awaitConnection(ConnectionRecord::stateIsActive, 10, TimeUnit.SECONDS)
+                    .findAny().get();
             
-            ConnectionRecord inviteeConnectionRecord = inviteeWSClient.connection()
-                    .filter(ConnectionRecord::stateIsActive)
-                    .blockFirst(Duration.ofSeconds(10));
+            ConnectionRecord inviteeConnectionRecord = inviteeWSClient
+            		.awaitConnection(ConnectionRecord::stateIsActive, 10, TimeUnit.SECONDS)
+                    .findAny().get();
             
             String inviterConnectionId = inviterConnectionRecord.getConnectionId();
             String inviteeConnectionId = inviteeConnectionRecord.getConnectionId();

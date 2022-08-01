@@ -47,7 +47,7 @@ public class OnboardFaberTest extends AbstractAriesTest {
                 .build();
         
         try {
-            AriesClient faber = createClient(faberWallet);
+            AriesClient faber = faberWallet.createClient();
 
             DID did = faber.walletDidPublic().get();
             log.info("Faber: Public {}", did);

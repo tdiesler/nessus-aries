@@ -20,10 +20,11 @@
 package io.nessus.aries.wallet;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 import org.hyperledger.acy_py.generated.model.DID;
 import org.hyperledger.aries.AriesClient;
-import org.hyperledger.aries.AriesWebSocketClient;
 import org.hyperledger.aries.api.multitenancy.RemoveWalletRequest;
 import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.config.GsonConfig;
@@ -34,7 +35,17 @@ import com.google.gson.Gson;
 
 import io.nessus.aries.AgentConfiguration;
 import io.nessus.aries.AriesClientFactory;
+import io.nessus.aries.util.AssertState;
+import io.nessus.aries.util.ThreadUtils;
+import io.nessus.aries.websocket.WebSocketClient;
+import io.nessus.aries.websocket.WebSocketListener;
 
+/**
+ * A NessusWallet gives acces to wallet information as known by the agent.
+ * 
+ * It also serves as a factory for the JSON-RPC Client as well as the WebSocket Client  
+ * 
+ */
 public class NessusWallet extends WalletRecord implements AutoCloseable {
 
     static final Logger log = LoggerFactory.getLogger(WalletRecord.class);
@@ -42,7 +53,8 @@ public class NessusWallet extends WalletRecord implements AutoCloseable {
     static final Gson gson = GsonConfig.defaultConfig();
     
     private transient WalletRegistry walletRegistry;
-    private transient AriesWebSocketClient wsclient;
+    private transient WebSocketClient wsclient;
+    private transient AriesClient rpclient;
     private transient DID publicDid;
     
     public static NessusWallet build(WalletRecord wr) {
@@ -72,20 +84,38 @@ public class NessusWallet extends WalletRecord implements AutoCloseable {
         return walletRegistry;
     }
 
-    public AriesWebSocketClient getWebSocketClient() {
-        return getWebSocketClient(AgentConfiguration.defaultConfiguration());
+    public AriesClient getClient() {
+        return rpclient;
     }
     
-    public AriesWebSocketClient getWebSocketClient(AgentConfiguration config) {
-        if (wsclient == null) {
-            wsclient =  AriesWebSocketClient.builder()
-                    .url(config.getWebSocketUrl())
-                    .apiKey(config.getApiKey())
-                    .bearerToken(getToken())
-                    .walletId(getWalletId())
-                    .handler(new DefaultEventHandler(this, walletRegistry)).build();
-            
-        }
+    public WebSocketClient getWebSocketClient() {
+        return wsclient;
+    }
+    
+    public AriesClient createClient() {
+        return createClient(AgentConfiguration.defaultConfiguration());
+    }
+    
+    public AriesClient createClient(AgentConfiguration config) {
+        return rpclient = AriesClientFactory.createClient(config, this);
+    }
+    
+    public WebSocketClient createWebSocketClient() {
+        return createWebSocketClient(AgentConfiguration.defaultConfiguration(), null);
+    }
+    
+    public WebSocketClient createWebSocketClient(AgentConfiguration config) {
+        return createWebSocketClient(config, null);
+    }
+    
+    public WebSocketClient createWebSocketClient(AgentConfiguration config, WebSocketListener wslistener) {
+    	AssertState.isNull(wsclient, "WebSocket client already created");
+    	if (wslistener == null) {
+    		List<String> walletIdFilter = Collections.singletonList(getWalletId());
+    		wslistener = new WebSocketListener(getWalletName(), walletRegistry, walletIdFilter);
+    	}
+    	wsclient = new WebSocketClient(config, this);
+    	wsclient.openWebSocket(wslistener);
         return wsclient;
     }
     
@@ -96,7 +126,7 @@ public class NessusWallet extends WalletRecord implements AutoCloseable {
 
     public synchronized void closeWebSocket() {
         if (wsclient != null) {
-            wsclient.close();
+        	wsclient.close();
             wsclient = null;
         }
     }
@@ -104,8 +134,6 @@ public class NessusWallet extends WalletRecord implements AutoCloseable {
     public void closeAndRemove() throws IOException {
         
         log.info("Remove Wallet: {}", getWalletName());
-        
-        closeWebSocket();
         
         if (walletRegistry != null)
             walletRegistry.removeWallet(getWalletId());
@@ -116,17 +144,9 @@ public class NessusWallet extends WalletRecord implements AutoCloseable {
                 .build());
 
         // Wait for the wallet to get removed 
-        sleepWell(500); 
+        ThreadUtils.sleepWell(500); 
         while (!adminClient.multitenancyWallets(getWalletName()).get().isEmpty()) {
-            sleepWell(500); 
-        }
-    }
-
-    public static void sleepWell(long millis) {
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException ex) {
-            // ignore
+            ThreadUtils.sleepWell(500); 
         }
     }
 }

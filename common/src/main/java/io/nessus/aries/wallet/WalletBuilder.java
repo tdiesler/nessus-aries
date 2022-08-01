@@ -136,13 +136,13 @@ public class WalletBuilder {
             AssertState.isTrue(selfRegister || trusteeWallet != null, "LedgerRole " + ledgerRole + " requires selfRegister or trusteeWallet");
             
             // Create a local DID for the wallet
-            AriesClient client = AriesClientFactory.createClient(nessusWallet, agentConfig);
+            AriesClient client = AriesClientFactory.createClient(agentConfig, nessusWallet);
             DID did = client.walletDidCreate(WalletDIDCreate.builder().build()).get();
             log.info("{}: {}", walletName, did);
             
             if (trusteeWallet != null) {
                 
-                AriesClient trustee = AriesClientFactory.createClient(trusteeWallet, agentConfig);
+                AriesClient trustee = AriesClientFactory.createClient(agentConfig, trusteeWallet);
                 String trusteeName = trusteeWallet.getSettings().getWalletName();
                 TxnOrRegisterLedgerNymResponse nymResponse = trustee.ledgerRegisterNym(RegisterNymFilter.builder()
                         .did(did.getDid())

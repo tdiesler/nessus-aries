@@ -2,7 +2,6 @@ version: '3'
 
 networks:
   von-network:
-  tails-server:
 
 services:
 
@@ -10,7 +9,7 @@ services:
   # Webserver
   #
   webserver:
-    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-1.7.2}
     container_name: indy-webserver
     command: bash -c 'sleep 10 && ./scripts/start_webserver.sh'
     environment:
@@ -42,7 +41,7 @@ services:
   # Nodes
   #
   node1:
-    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-1.7.2}
     container_name: indy-node1
     command: ./scripts/start_node.sh 1
     networks:
@@ -60,7 +59,7 @@ services:
       - node1-data:/home/indy/ledger
 
   node2:
-    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-1.7.2}
     container_name: indy-node2
     command: ./scripts/start_node.sh 2
     networks:
@@ -78,7 +77,7 @@ services:
       - node2-data:/home/indy/ledger
 
   node3:
-    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-1.7.2}
     container_name: indy-node3
     command: ./scripts/start_node.sh 3
     networks:
@@ -96,7 +95,7 @@ services:
       - node3-data:/home/indy/ledger
 
   node4:
-    image: nessusio/von-network:${VON_NETWORK_VERSION:-latest}
+    image: nessusio/von-network:${VON_NETWORK_VERSION:-1.7.2}
     container_name: indy-node4
     command: ./scripts/start_node.sh 4
     networks:
@@ -114,12 +113,12 @@ services:
       - node4-data:/home/indy/ledger
 
   tails-server:
-    image: nessusio/indy-tails-server:${TAILS_SERVER_VERSION:-latest}
+    image: nessusio/indy-tails-server:${TAILS_SERVER_VERSION:-1.0.0}
     container_name: tails-server
     ports:
       - 6543:6543
     networks:
-      - tails-server
+      - von-network
     command: >
       tails-server
         --host 0.0.0.0
@@ -128,7 +127,7 @@ services:
         --log-level ${LOG_LEVEL:-info}
 
   acapy:
-    image: nessusio/aries-cloudagent-python:${ACAPY_VERSION:-latest}
+    image: nessusio/aries-cloudagent-python:${ACAPY_VERSION:-0.7.4}
     container_name: acapy
     ports:
       - ${ACAPY_USER_PORT:-8030}:${ACAPY_USER_PORT:-8030}
@@ -165,7 +164,7 @@ services:
         --auto-ping-connection
         --auto-accept-requests
         --log-level info
-        
+
 volumes:
   webserver-cli:
   webserver-ledger:

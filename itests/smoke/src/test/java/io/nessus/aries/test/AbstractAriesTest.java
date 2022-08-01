@@ -19,12 +19,9 @@
  */
 package io.nessus.aries.test;
 
-import java.io.IOException;
 import java.util.Arrays;
 
-import org.hyperledger.aries.AriesClient;
 import org.hyperledger.aries.api.connection.ConnectionRecord;
-import org.hyperledger.aries.api.multitenancy.WalletRecord;
 import org.hyperledger.aries.config.GsonConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.slf4j.Logger;
@@ -33,7 +30,6 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 
 import io.nessus.aries.AgentConfiguration;
-import io.nessus.aries.AriesClientFactory;
 import io.nessus.aries.util.AttachmentKey;
 import io.nessus.aries.util.AttachmentSupport;
 import io.nessus.aries.wallet.NessusWallet;
@@ -62,13 +58,6 @@ public abstract class AbstractAriesTest {
     
     public WalletBuilder createWallet(String walletName) {
         return new WalletBuilder(walletName).walletRegistry(walletRegistry);
-    }
-
-    /**
-     * Create a client for a multitenant wallet
-     */
-    public AriesClient createClient(WalletRecord wallet) throws IOException {
-        return AriesClientFactory.createClient(wallet, agentConfig);
     }
 
     public WalletRegistry getWalletRegistry() {
