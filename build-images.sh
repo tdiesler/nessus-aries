@@ -37,11 +37,9 @@ function buildAcaPyImage () {
         git checkout "${ACAPY_VERSION}"
     else
         cd ${HOME}/git/aries-cloudagent-python
-        git checkout main
-        git pull origin main
     fi
-    
-    echo "Building ${fullName} ..."
+
+    echo "Building ${fullName} from $(pwd) ..."
     docker build -t ${fullName} -f ./docker/Dockerfile.run .
     docker tag ${fullName} "${imageName}:latest"
     
