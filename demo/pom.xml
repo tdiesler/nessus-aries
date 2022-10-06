@@ -37,7 +37,7 @@
 
     <!-- Properties -->
     <properties>
-        <version.apache.camel>3.19.0-SNAPSHOT</version.apache.camel>
+        <version.apache.camel>3.19.0</version.apache.camel>
         <docker.image.name>nessusio/aries-demo</docker.image.name>
         <docker.image.version>latest</docker.image.version>
     </properties>
