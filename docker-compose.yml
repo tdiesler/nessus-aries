@@ -1,3 +1,20 @@
+# ---------------------------------------------------------------------------
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ---------------------------------------------------------------------------
+
 version: '3'
 
 networks:
@@ -29,6 +46,8 @@ services:
       - WEB_ANALYTICS_SCRIPT=${WEB_ANALYTICS_SCRIPT}
       - INFO_SITE_TEXT=${INFO_SITE_TEXT}
       - INFO_SITE_URL=${INFO_SITE_URL}
+    extra_hosts:
+      - host.docker.internal:host-gateway
     networks:
       - von-network
     ports:
@@ -55,6 +74,8 @@ services:
       - DOCKERHOST=${DOCKERHOST:-host.docker.internal}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - RUST_LOG=${RUST_LOG:-warn}
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       - node1-data:/home/indy/ledger
 
@@ -73,6 +94,8 @@ services:
       - DOCKERHOST=${DOCKERHOST:-host.docker.internal}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - RUST_LOG=${RUST_LOG:-warn}
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       - node2-data:/home/indy/ledger
 
@@ -91,6 +114,8 @@ services:
       - DOCKERHOST=${DOCKERHOST:-host.docker.internal}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - RUST_LOG=${RUST_LOG:-warn}
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       - node3-data:/home/indy/ledger
 
@@ -109,6 +134,8 @@ services:
       - DOCKERHOST=${DOCKERHOST:-host.docker.internal}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - RUST_LOG=${RUST_LOG:-warn}
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       - node4-data:/home/indy/ledger
 
@@ -119,6 +146,8 @@ services:
       - 6543:6543
     networks:
       - von-network
+    extra_hosts:
+      - host.docker.internal:host-gateway
     command: >
       tails-server
         --host 0.0.0.0
@@ -134,13 +163,8 @@ services:
       - ${ACAPY_ADMIN_PORT:-8031}:${ACAPY_ADMIN_PORT:-8031}
     networks:
       - von-network
-    depends_on:
-      - node1
-      - node2
-      - node3
-      - node4
-      - webserver
-      - tails-server
+    extra_hosts:
+      - host.docker.internal:host-gateway
     command: >
       start
         --genesis-url http://${DOCKERHOST:-host.docker.internal}:9000/genesis
@@ -164,6 +188,13 @@ services:
         --auto-ping-connection
         --auto-accept-requests
         --log-level info
+    depends_on:
+      - node1
+      - node2
+      - node3
+      - node4
+      - webserver
+      - tails-server
 
 volumes:
   webserver-cli:

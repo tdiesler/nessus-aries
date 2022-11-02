@@ -5,7 +5,7 @@ In it initial POC, Faber uses Google Sheets as data source.
 
 ## Setup and test the Google Sheets API 
 
-First, we have to go through some non-trivial process to setup OAUTH for our Google Sheet - this os documented [here](./docs/google-access.md)
+First, we have to go through some non-trivial process to setup OAUTH for our Google Sheet - this is documented [here](./docs/google-access.md)
 
     export GOOGLE_OAUTH_CLIENT_ID=***.apps.googleusercontent.com
     export GOOGLE_OAUTH_CLIENT_SECRET=***
