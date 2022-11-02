@@ -8,7 +8,7 @@ TARGET_DIR="${PWD}/target"
 
 if [[ -z ${ACAPY_VERSION} ]]; then
     # Set ACAPY_VERSION="dev" to use the latest
-    ACAPY_VERSION="0.7.4"
+    ACAPY_VERSION="0.7.5"
 fi
 
 if [[ -z ${TAILS_SERVER_VERSION} ]]; then

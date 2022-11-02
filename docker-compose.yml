@@ -127,7 +127,7 @@ services:
         --log-level ${LOG_LEVEL:-info}
 
   acapy:
-    image: nessusio/aries-cloudagent-python:${ACAPY_VERSION:-0.7.4}
+    image: nessusio/aries-cloudagent-python:${ACAPY_VERSION:-0.7.5}
     container_name: acapy
     ports:
       - ${ACAPY_USER_PORT:-8030}:${ACAPY_USER_PORT:-8030}
